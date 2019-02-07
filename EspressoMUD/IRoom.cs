@@ -19,6 +19,6 @@ namespace EspressoMUD
     // ?
     public interface IRoom : ISaveable
     {
-
+        
     }
 }

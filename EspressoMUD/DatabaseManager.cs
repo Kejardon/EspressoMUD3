@@ -1204,6 +1204,51 @@ namespace EspressoMUD
             }
         }
 
+        /// <summary>
+        /// Save an entire subobject for a property to a stream.
+        /// </summary>
+        /// <param name="child">Subobject to save</param>
+        /// <param name="writer">Stream to save subobject to</param>
+        public static void SaveSubobject(ISaveable child, BinaryWriter writer)
+        {
+
+            Metadata typeData = child.GetMetadata();
+            writer.Write(typeData.ClassID);
+
+            MemoryStream parserStream = new MemoryStream(8192); //Buffer/writer for an individual parser
+            BinaryWriter parserWriter = new BinaryWriter(parserStream);
+            MemoryStream objectStream = writer.BaseStream as MemoryStream;
+
+            foreach (SaveableParser parser in typeData.ParserByID)
+            {
+                if (parser != null && !(parser is SaveIDParser))
+                {
+                    SaveParserToBuffer(parserStream, parserWriter, objectStream, writer, child, parser);
+                }
+            }
+        }
+        /// <summary>
+        /// Load an entire subobject for a property from a stream. Note the stream must not have extra data after the subobject data.
+        /// </summary>
+        /// <param name="reader">All the data for the subobject, and stopping immediately after the data for the subobject. If
+        /// there is additional data in this stream, a smaller stream/reader should be created from it that only contains the
+        /// data for the subobject before calling this function.
+        /// </param>
+        /// <returns>Loaded subobject</returns>
+        public static ISaveable LoadSubobject(BinaryReader reader)
+        {
+            int classID = reader.ReadInt32();
+            Metadata data = Metadata.ByClassID[classID];
+            ISaveable newObject = Activator.CreateInstance(data.ClassType, false) as ISaveable;
+
+            MemoryStream stream = reader.BaseStream as MemoryStream;
+            ArraySegmentStream array = new ArraySegmentStream();
+            BinaryReader parserReader = new BinaryReader(array);
+            while (stream.Position < stream.Length) //The end of the subobject is also the end of the 
+                LoadOneParser(array, parserReader, stream, reader, newObject, data);
+
+            return newObject;
+        }
 
         /// <summary>
         /// Saves a positive integer to a BinaryWriter. Values from 0 to 2^28-1 are supported.

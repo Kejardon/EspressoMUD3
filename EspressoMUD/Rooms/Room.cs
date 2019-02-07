@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KejUtils.SharedLocks;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public abstract class Room : IRoom, ISaveable
+    public abstract class Room : IRoom, ISaveable, ILockable
     {
         [SaveField("Items")]
         private ListItems contents = new ListItems();
@@ -46,6 +47,11 @@ namespace EspressoMUD
 
         //ISaveable template
         public SaveValues SaveValues { get; set; }
+
+        //ILockable template
+        public object LockMutex { get { return this; } }
+        public LockableLockGroup CurrentLock { get; set; }
+
         [SaveID("ID")]
         protected int RoomID = -1; //Only supports IRoom ObjectType, so assume IRoom
         public int GetSaveID(ObjectType databaseGroup) { return RoomID; }

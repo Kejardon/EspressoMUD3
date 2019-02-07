@@ -46,11 +46,16 @@
     <Compile Include="ArraySegmentStream.cs" />
     <Compile Include="Builder.cs" />
     <Compile Include="CircularConcurrentQueue.cs" />
+    <Compile Include="EnumClass.cs" />
+    <Compile Include="SharedLocks\LockableLock.cs" />
+    <Compile Include="SharedLocks\LockableLockGroup.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="SharedLocks\ILockable.cs" />
     <Compile Include="PrivateList.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ReverseComparer.cs" />
+    <Compile Include="SharedLocks\ILockHolder.cs" />
     <Compile Include="ShortcutDictionary.cs" />
   </ItemGroup>
   <ItemGroup>

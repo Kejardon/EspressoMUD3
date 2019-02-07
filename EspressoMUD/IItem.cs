@@ -8,5 +8,6 @@ namespace EspressoMUD
 {
     public interface IItem : ISaveable
     {
+        IPosition Position { get; set; }
     }
 }

@@ -219,31 +219,38 @@ namespace EspressoMUD
                 return new SaveIntParser(field);
             }
             if (field.FieldType == typeof(int[]))
-            {
                 return new SaveIntArrayParser(field);
-            }
             if (field.FieldType == typeof(string))
-            {
                 return new SaveStringParser(field, (string)Default);
-            }
-            if (field.FieldType == typeof(ListMOBs))
-            {
-                return new SaveListMOBsParser(field);
-            }
-            if (field.FieldType == typeof(ListItems))
-            {
-                return new SaveListItemsParser(field);
-            }
-            if (field.FieldType == typeof(ListRooms))
-            {
-                return new SaveListRoomsParser(field);
-            }
-            if (field.FieldType == typeof(ListRoomLinks))
-            {
-                return new SaveListRoomLinksParser(field);
-            }
 
-            throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported.");
+            if (field.FieldType == typeof(ListMOBs))
+                return new SaveListMOBsParser(field);
+            if (field.FieldType == typeof(ListItems))
+                return new SaveListItemsParser(field);
+            if (field.FieldType == typeof(ListRooms))
+                return new SaveListRoomsParser(field);
+            if (field.FieldType == typeof(ListRoomLinks))
+                return new SaveListRoomLinksParser(field);
+
+            throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved field.");
+        }
+    }
+
+    /// <summary>
+    /// Generic attribute that attempts to save any ISaveable field directly to this object. Should only be
+    /// used for child objects that can never be reassigned to a different parent.
+    /// </summary>
+    public class SaveSubobjectAttribute : SaveableFieldAttribute
+    {
+        public SaveSubobjectAttribute(string Key) : base(Key)
+        {
+        }
+
+        public override SaveableParser Parser(FieldInfo field)
+        {
+            if (field.FieldType == typeof(IPosition))
+                return new SaveSubobjectParser<IPosition>(field);
+            throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved subobject.");
         }
     }
 
@@ -368,50 +375,7 @@ namespace EspressoMUD
         private Func<ISaveable, int[]> Getter;
         private Action<ISaveable, int[]> Setter;
     }
-
-    public class SaveDelayedMOBListAttribute : SaveableFieldAttribute
-    {
-        public SaveDelayedMOBListAttribute(string Key) : base(Key) { }
-        public override SaveableParser Parser(FieldInfo field)
-        {
-            SaveableParser parser = new SaveDelayedMOBListParser(field);
-            return parser;
-        }
-    }
-    public class SaveDelayedMOBListParser : SaveableParser
-    {
-        public SaveDelayedMOBListParser(FieldInfo field)
-        {
-            Type type = field.FieldType;
-
-            Getter = GenerateGetter<List<DelayedMOB>>(field);
-            Setter = GenerateSetter<List<DelayedMOB>>(field);
-        }
-        public override void Get(ISaveable source, BinaryWriter writer)
-        {
-            List<DelayedMOB> array = Getter.Invoke(source);
-            if (array != null)
-            {
-                foreach (DelayedMOB mob in array)
-                {
-                    if (mob.Value != null)
-                        writer.Write(mob.Value.GetSetSaveID(ObjectType.TypeByClass[typeof(IMOB)]));
-                    else
-                        writer.Write(mob.Id);
-                }
-            }
-        }
-        public override void Set(ISaveable target, BinaryReader reader)
-        {
-            int count = (int)(reader.BaseStream.Length / sizeof(int));
-            List<DelayedMOB> array = new List<DelayedMOB>(count);
-            for (int i = 0; i < count; i++) array.Add(new DelayedMOB(reader.ReadInt32()));
-            Setter.Invoke(target, array);
-        }
-        private Func<ISaveable, List<DelayedMOB>> Getter;
-        private Action<ISaveable, List<DelayedMOB>> Setter;
-    }
-
+    
     public class SaveStringAttribute : SaveableFieldAttribute
     {
         public SaveStringAttribute(string Key) : base(Key)
@@ -446,6 +410,33 @@ namespace EspressoMUD
         }
         private Func<ISaveable, string> Getter;
         private Action<ISaveable, string> Setter;
+    }
+
+    /// <summary>
+    /// Parser to save a subobject. Most of the time objects can probably just use this parser.
+    /// If something wants to extend this, probably refactor a bit first.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class SaveSubobjectParser<T> : SaveableParser where T : ISaveable
+    {
+        public SaveSubobjectParser(FieldInfo field)
+        {
+            Getter = GenerateGetter<T>(field);
+            Setter = GenerateSetter<T>(field);
+        }
+        public override void Get(ISaveable source, BinaryWriter writer)
+        {
+            ISaveable child = Getter.Invoke(source);
+            if (child == null) return;
+            DatabaseManager.SaveSubobject(child, writer);
+        }
+        public override void Set(ISaveable target, BinaryReader reader)
+        {
+            T child = (T)DatabaseManager.LoadSubobject(reader);
+            Setter.Invoke(target, child);
+        }
+        private Func<ISaveable, T> Getter;
+        private Action<ISaveable, T> Setter;
     }
 
     /// <summary>

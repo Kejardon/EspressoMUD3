@@ -16,12 +16,12 @@ namespace EspressoMUD
         /// <summary>
         /// The user text that distinctly calls this command. This must be unique among all commands in the MUD.
         /// </summary>
-        public virtual string UniqueCommand { get; protected set; }
+        public virtual string UniqueCommand { get; protected set; } //TODO: Get these from Resource files instead?
 
         /// <summary>
         /// Other full text strings to call this command.
         /// </summary>
-        protected virtual string[] AlternateCommands
+        protected virtual string[] AlternateCommands //TODO: Get these from Resource files instead?
         {
             set {
                 List<CommandEntry> entries = new List<CommandEntry>();
@@ -169,5 +169,14 @@ namespace EspressoMUD
         public Command command;
         public String cmdString;
         //Specific commands may extend this with special command data, to use in their execute call
+        private StringWords parsed;
+        public StringWords parsedCommand { get
+            {
+                if (parsed == null)
+                {
+                    parsed = new StringWords(cmdString);
+                }
+                return parsed;
+            } }
     }
 }

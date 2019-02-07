@@ -49,11 +49,17 @@
   <ItemGroup>
     <Compile Include="Account.cs" />
     <Compile Include="Client.cs" />
-    <Compile Include="Command.cs" />
+    <Compile Include="Commands\Command.cs" />
+    <Compile Include="Commands\DirectionCommand.cs" />
+    <Compile Include="Commands\Go.cs" />
+    <Compile Include="Commands\MOBCommand.cs" />
     <Compile Include="DatabaseManager.cs" />
+    <Compile Include="Events\RoomEvent.cs" />
     <Compile Include="IItem.cs" />
+    <Compile Include="IPosition.cs" />
     <Compile Include="IRoomLink.cs" />
     <Compile Include="Item.cs" />
+    <Compile Include="Libraries\TextParsing.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Prompts\GameplayPrompt.cs" />
     <Compile Include="Prompts\BasePrompts\HeldPrompt.cs" />
@@ -62,7 +68,6 @@
     <Compile Include="InputHandlers\EscapeHandlerType.cs" />
     <Compile Include="InputHandlers\IACHandlerType.cs" />
     <Compile Include="InputHandlers\InputHandler.cs" />
-    <Compile Include="ILockable.cs" />
     <Compile Include="IMOB.cs" />
     <Compile Include="InputHandlers\InputHandlerType.cs" />
     <Compile Include="IRoom.cs" />
@@ -81,6 +86,21 @@
     <Compile Include="Prompts\NewCharacterPrompt.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ISaveable.cs" />
+    <Compile Include="Properties\ResourcesMoveDistances.Designer.cs">
+      <DependentUpon>ResourcesMoveDistances.resx</DependentUpon>
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="Properties\ResourcesMovePrepositions.Designer.cs">
+      <DependentUpon>ResourcesMovePrepositions.resx</DependentUpon>
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Rooms\DiscreteRoom.cs" />
     <Compile Include="Rooms\Room.cs" />
     <Compile Include="RoomLinks\OpenLink.cs" />
@@ -100,7 +120,21 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Libraries\" />
+    <EmbeddedResource Include="Properties\ResourcesMoveDistances.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ResourcesMoveDistances.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\ResourcesMovePrepositions.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ResourcesMovePrepositions.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\TextFile1.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

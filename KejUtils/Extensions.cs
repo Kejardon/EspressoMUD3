@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace KejUtils
 {
-    public static class Extensions
+    public static partial class Extensions
     {
         /// <summary>
         /// Attempts to add an object to a sorted List. Assumes each object should be unique.
@@ -42,6 +43,17 @@ namespace KejUtils
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Get the amount of time to wait given a requested timeout and the start time.
+        /// </summary>
+        /// <param name="startTime">UTC start time that the request was made at</param>
+        /// <param name="timeout">Requested time to wait, in milliseconds, or Timeout.Infinite</param>
+        /// <returns>Remaining time to wait, in milliseconds, or Timeout.Infinite</returns>
+        public static int RemainingTimeout(this DateTime startTime, int timeout)
+        {
+            return (timeout == Timeout.Infinite ? Timeout.Infinite : Math.Max(0, timeout - (DateTime.UtcNow - startTime).Milliseconds));
         }
 
         //I think these are already implemented with Write and ReadString. If I need a fixed length size for some bizarre reason this might be appropriate, but that seems unlikely.

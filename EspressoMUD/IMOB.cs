@@ -13,5 +13,9 @@ namespace EspressoMUD
 
         Client Client { get; }
 
+        Item Body { get; } //TODO: Create and replace this with a Body class that extends Item?
+
+        //Room MainLocation { get; }
+
     }
 }

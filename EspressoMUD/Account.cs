@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public class Account : ISaveable, IAccount, ILockable
+    public class Account : ISaveable, IAccount //, ILockable
     {
         /// <summary>
         /// Encryption method used to 
@@ -72,7 +72,7 @@ namespace EspressoMUD
         public List<Client> CurrentLogins { get; protected set; } = new List<Client>();
 
         //ILockable template
-        public ReaderWriterLockSlim Lock { get; set; }
+        //public ReaderWriterLockSlim Lock { get; set; }
         //ISaveable template
         public SaveValues SaveValues { get; set; }
         [SaveID("ID")]

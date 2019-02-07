@@ -23,6 +23,14 @@ namespace EspressoMUD
             get { return description; }
             set { description = value;  this.Save(); }
         }
+
+        [SaveSubobject("Position")]
+        private IPosition position;
+        public IPosition Position
+        {
+            get { return position; }
+            set { position = value;  this.Save(); }
+        }
         
         //ISaveable template
         public SaveValues SaveValues { get; set; }
