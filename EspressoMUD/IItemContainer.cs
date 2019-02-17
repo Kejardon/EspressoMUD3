@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public interface IItem : ISaveable
+    public interface IItemContainer : ISaveable
     {
-        IPosition Position { get; set; }
+        Item ItemObject { get; }
     }
 }

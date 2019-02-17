@@ -14,13 +14,13 @@ namespace EspressoMUD
     {
         public static ObjectType[] TypeByID;
         public static Dictionary<Type,ObjectType> TypeByClass;
-        private static Type[] GetInterfaces()
+        private static Type[] GetBaseClasses()
         {
             return new Type[] {
-                typeof(IAccount),
-                typeof(IMOB),
-                typeof(IRoom),
-                typeof(IItem)
+                typeof(Account),
+                typeof(MOB),
+                typeof(Room),
+                typeof(Item)
                 };
         }
         //'Flag' slots. Generally only used by this and the database.
@@ -37,7 +37,7 @@ namespace EspressoMUD
         /// </summary>
         public static readonly ISaveable UnreadableSlot = new DummySaveable();
         /// <summary>
-        /// Object ID is on the database but has not been loaded.
+        /// Object ID is on the database but has not been loaded. It's not guaranteed to be readable though.
         /// </summary>
         public static readonly ISaveable DatabaseSlot = new DummySaveable();
         // If null, object ID is unknown on the database.
@@ -52,34 +52,34 @@ namespace EspressoMUD
         /// <returns>Object types that were loaded this time but have not been mapped in the past.</returns>
         public static List<ObjectType> SetObjectTypes(List<string> savedTypes)
         {
-            Type[] interfaces = GetInterfaces();
+            Type[] baseClasses = GetBaseClasses();
             List<ObjectType> newTypes = new List<ObjectType>();
             List<ObjectType> objectTypes = new List<ObjectType>();
             TypeByClass = new Dictionary<Type, ObjectType>();
             while (objectTypes.Count < savedTypes.Count) objectTypes.Add(null); //Reserve spots for all the previously-loaded types, even if we won't match them.
-            for (int i=0; i < interfaces.Length; i++)
+            for (int i=0; i < baseClasses.Length; i++)
             {
-                int savedIndex = savedTypes.IndexOf(interfaces[i].Name);
+                int savedIndex = savedTypes.IndexOf(baseClasses[i].Name);
                 ObjectType newType;
                 if (savedIndex != -1)
                 {
-                    //Assign previously loaded interfaces to their assigned spot
-                    objectTypes[savedIndex] = newType = ObjectType.CreateTypeFor(interfaces[i], savedIndex);
+                    //Assign previously loaded classes to their assigned spot
+                    objectTypes[savedIndex] = newType = ObjectType.CreateTypeFor(baseClasses[i], savedIndex);
                 }
                 else
                 {
                     //This is a new interface that hasn't been used before. Assign it to a new spot.
-                    newType = ObjectType.CreateTypeFor(interfaces[i], objectTypes.Count);
+                    newType = ObjectType.CreateTypeFor(baseClasses[i], objectTypes.Count);
                     objectTypes.Add(newType);
                     newTypes.Add(newType);
                 }
-                TypeByClass[newType.RelatedInterface] = newType;
+                TypeByClass[newType.BaseClass] = newType;
             }
             TypeByID = objectTypes.ToArray();
             return newTypes;
         }
 
-        public Type RelatedInterface;
+        public Type BaseClass;
         /// <summary>
         /// List of known free ID numbers. Ideally this should be sorted in descending order.
         /// </summary>
@@ -122,20 +122,20 @@ namespace EspressoMUD
         //    }
         //}
 
-        public ObjectType(Type ancestorInterface, int Id)
+        public ObjectType(Type baseClass, int Id)
         {
-            RelatedInterface = ancestorInterface;
+            BaseClass = baseClass;
             this.ID = Id;
         }
-        private static ObjectType CreateTypeFor(Type ancestorInterface, int Id)
+        private static ObjectType CreateTypeFor(Type baseClass, int Id)
         {
-            if(ancestorInterface == typeof(IAccount))
+            if(baseClass == typeof(Account))
             {
-                return new AccountObjects(ancestorInterface, Id);
+                return new AccountObjects(baseClass, Id);
             }
             else
             {
-                return new ObjectType(ancestorInterface, Id);
+                return new ObjectType(baseClass, Id);
             }
         }
 
@@ -150,21 +150,21 @@ namespace EspressoMUD
             byte[] data = new byte[howMany * 0x10];
             MemoryStream memStream = new MemoryStream(data);
             BinaryReader reader = new BinaryReader(memStream);
-            int read = 0;
+            int read = 0; //Amount of entries read (0x10 bytes each, must read a full entry to count)
             int available;
             long newPosition = (long)startingFrom * 0x10;
             lock (stream)
             {
                 available = (int)(stream.Length / 0x10);
-                if(available > newPosition)
+                if(available > startingFrom) //Are there more entries to read?
                 {
-                    stream.Position = startingFrom * 0x10;
-                    read = stream.Read(data, 0, data.Length) / 0x10;
+                    stream.Position = newPosition;
+                    read = stream.Read(data, 0, data.Length) / 0x10; //Read up to 'howMany' entries, or as much as in the file.
                 }
             }
-            EnsureSize(startingFrom + read - 1);
+            EnsureSize((startingFrom - 1) + read); //EnsureSize and startingFrom are both inclusive, subtract 1 for fenceposts
             int nextIndex = startingFrom;
-            while (memStream.Position < (read * 0x10))
+            while (memStream.Position < (read * 0x10)) //Parse all the entries and mark their entries in the dictionary.
             {
                 int isValid = reader.ReadInt32();
                 if (ItemDictionary[nextIndex] == null)
@@ -180,10 +180,11 @@ namespace EspressoMUD
                 nextIndex++;
                 memStream.Seek(0x10 - 4, SeekOrigin.Current);
             }
-            if (available <= startingFrom + read)
+            //If all entries in the database have been read, indicate that with LowestUncheckedNumber.
+            if (available <= startingFrom + read) //available and startingFrom are both inclusive, so again subtract 1
             {
                 //Future asks for numbers can start incrementing from the highest known number instead.
-                LowestUncheckedNumber = -ItemDictionary.Count - 1;
+                LowestUncheckedNumber = -ItemDictionary.Count - 1; //Subtract 1 because two's complement.
             }
             else
             {
@@ -370,7 +371,7 @@ namespace EspressoMUD
             }
             if (foundObject == UnreadableSlot)
             { //Handle case of data being unreadable on the database. Not much that can be done.
-                Log.LogText("Reference to unreadable data (" + this.RelatedInterface.Name + "[" + id + "]" + "): " + new Exception().ToString());
+                Log.LogText("Reference to unreadable data (" + this.BaseClass.Name + "[" + id + "]" + "): " + new Exception().ToString());
                 return null;
             }
             return foundObject;
@@ -381,7 +382,7 @@ namespace EspressoMUD
     public class AccountObjects : ObjectType
     {
         private ConcurrentDictionary<string, Account> usernameMap = new ConcurrentDictionary<string, Account>();
-        public AccountObjects(Type ancestorInterface, int Id) : base(ancestorInterface, Id)
+        public AccountObjects(Type baseClass, int Id) : base(baseClass, Id)
         {
         }
         /// <summary>
@@ -453,7 +454,7 @@ namespace EspressoMUD
         /// <returns></returns>
         public static AccountObjects Get()
         {
-            return ObjectType.TypeByClass[typeof(IAccount)] as AccountObjects;
+            return ObjectType.TypeByClass[typeof(Account)] as AccountObjects;
         }
 
     }

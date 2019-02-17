@@ -65,7 +65,7 @@ namespace EspressoMUD
         }
 
 
-        public override void execute(IMOB mob, QueuedCommand command)
+        public override void execute(MOB mob, QueuedCommand command)
         {
             StringWords input = command.parsedCommand;
             int distance = -1;

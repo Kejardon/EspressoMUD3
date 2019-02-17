@@ -11,5 +11,6 @@ namespace EspressoMUD
     /// </summary>
     public interface IPosition : ISaveable
     {
+        Room forRoom { get; }
     }
 }

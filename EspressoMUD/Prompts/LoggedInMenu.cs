@@ -11,7 +11,7 @@ namespace EspressoMUD.Prompts
     /// </summary>
     public class LoggedInMenu : MenuPrompt
     {
-        public LoggedInMenu(HeldPrompt calledBy) : base(calledBy)
+        public LoggedInMenu(StandardHeldPrompt calledBy) : base(calledBy)
         {
         }
 
@@ -36,11 +36,11 @@ namespace EspressoMUD.Prompts
             AddOption("Delete a character.", () => { NextPrompt = new DeleteCharacterPrompt(this); }, "Delete");
             AddOption("Log out to log into another account.", () => { User.LogOut(); Cancel(false); }, "Log");
             AddOption("Disconnect from the MUD.", () => { User.Disconnect(); }, "Disconnect");
-            IMOB[] characters = User.LoggedInAccount.Characters;
+            MOB[] characters = User.LoggedInAccount.Characters;
             for (int i = 0; i < characters.Length; i++)
             {
-                IMOB nextMob = characters[i];
-                AddOption(nextMob.Name, () => { NextPrompt = new GameplayPrompt(this.User, nextMob); });
+                MOB nextMob = characters[i];
+                AddOption(nextMob.Name, () => { NextPrompt = new GameplayPrompt(this.User, nextMob); Cancel(false); });
             }
         }
 

@@ -7,17 +7,19 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public abstract class Room : IRoom, ISaveable, ILockable
+    public abstract class Room : IRoomContainer, ISaveable, ILockable
     {
+        public Room RoomObject { get { return this; } }
+
         [SaveField("Items")]
         private ListItems contents = new ListItems();
 
-        protected virtual void AddItem(IItem item)
+        protected virtual void AddItem(Item item)
         {
             contents.Add(item);
             this.Save();
         }
-        protected virtual bool RemoveItem(IItem item)
+        protected virtual bool RemoveItem(Item item)
         {
             if (contents.Remove(item))
             {
@@ -26,16 +28,26 @@ namespace EspressoMUD
             }
             return false;
         }
+        
+        public Item[] GetItems()
+        {
+            return contents.GetAll();
+        }
 
         [SaveField("Exits")]
         private ListRoomLinks exits = new ListRoomLinks();
 
-        protected virtual void AddExit(IRoomLink exit)
+        public RoomLink[] GetExits()
+        {
+            return exits.GetAll();
+        }
+
+        protected virtual void AddExit(RoomLink exit)
         {
             exits.Add(exit);
             this.Save();
         }
-        protected virtual bool RemoveExit(IRoomLink exit)
+        protected virtual bool RemoveExit(RoomLink exit)
         {
             if(exits.Remove(exit))
             {
@@ -57,4 +69,13 @@ namespace EspressoMUD
         public int GetSaveID(ObjectType databaseGroup) { return RoomID; }
         public void SetSaveID(ObjectType databaseGroup, int id) { RoomID = id; }
     }
+
+    public static partial class Extensions
+    {
+        public static Room GetRoom(MOB fromMob)
+        {
+            return fromMob.Body?.Position?.forRoom;
+        }
+    }
+
 }

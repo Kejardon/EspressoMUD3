@@ -9,9 +9,9 @@ namespace EspressoMUD.Prompts
 
     public class DeleteCharacterPrompt : MenuPrompt
     {
-        IMOB selectedMOB = null;
+        MOB selectedMOB = null;
 
-        public DeleteCharacterPrompt(HeldPrompt calledBy) : base(calledBy)
+        public DeleteCharacterPrompt(StandardHeldPrompt calledBy) : base(calledBy)
         {
         }
 
@@ -27,10 +27,10 @@ namespace EspressoMUD.Prompts
         protected void SetUpOptions()
         {
             ClearOptions();
-            IMOB[] characters = User.LoggedInAccount.Characters;
+            MOB[] characters = User.LoggedInAccount.Characters;
             for (int i = 0; i < characters.Length; i++)
             {
-                IMOB nextMob = characters[i];
+                MOB nextMob = characters[i];
                 AddOption(nextMob.Name, () => { this.selectedMOB = nextMob; });
             }
         }

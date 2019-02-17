@@ -9,8 +9,8 @@ namespace EspressoMUD.Prompts
 
     public class ConfirmDeleteCharacter : StandardHeldPrompt
     {
-        protected IMOB selectedMOB;
-        public ConfirmDeleteCharacter(IMOB mob, HeldPrompt previous) : base(previous)
+        protected MOB selectedMOB;
+        public ConfirmDeleteCharacter(MOB mob, StandardHeldPrompt previous) : base(previous)
         {
             selectedMOB = mob;
         }

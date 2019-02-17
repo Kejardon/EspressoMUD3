@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public class Account : ISaveable, IAccount //, ILockable
+    public class Account : ISaveable, IAccountContainer //, ILockable
     {
+        public Account AccountObject { get { return this; } }
+
         /// <summary>
         /// Encryption method used to 
         /// </summary>
@@ -34,7 +36,7 @@ namespace EspressoMUD
         //private List<DelayedMOB> unloadedCharacters; //TODO: Call this.Save() whenever this list is modified. 
 
         //private List<MOB> characters;
-        public IMOB[] Characters
+        public MOB[] Characters
         {
             get
             {
@@ -49,6 +51,7 @@ namespace EspressoMUD
         public void AddCharacter(MOB mob)
         {
             this.unloadedCharacters.Add(mob);
+            mob.OwningAccount = this;
             this.Save();
         }
 
@@ -61,6 +64,7 @@ namespace EspressoMUD
         {
             if (unloadedCharacters.Remove(mob))
             {
+                mob.OwningAccount = null;
                 this.Save();
                 return true;
             }

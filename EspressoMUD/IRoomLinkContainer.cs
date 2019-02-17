@@ -13,7 +13,8 @@ namespace EspressoMUD
     // Open path to a touching room
     // Doorway to a touching room
     // Teleporter portal/field to a distant room
-    public interface IRoomLink : ISaveable
+    public interface IRoomLinkContainer : ISaveable
     {
+        RoomLink RoomLinkObject { get; }
     }
 }

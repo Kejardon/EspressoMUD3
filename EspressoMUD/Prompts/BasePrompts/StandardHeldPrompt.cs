@@ -26,7 +26,7 @@ namespace EspressoMUD.Prompts
         /// <summary>
         /// Prompt to return to if this one is finished. Lowest priority.
         /// </summary>
-        protected HeldPrompt ReturnTo { get; private set; }
+        protected StandardHeldPrompt ReturnTo { get; set; }
 
         /// <summary>
         /// Subclasses can set this to end this prompt and continue with the next prompt. Lower priority than
@@ -39,7 +39,7 @@ namespace EspressoMUD.Prompts
         /// Create a 'subprompt' that will return to the previous prompt when this one is finished.
         /// </summary>
         /// <param name="calledBy"></param>
-        public StandardHeldPrompt(HeldPrompt calledBy, MOB character = null)
+        public StandardHeldPrompt(StandardHeldPrompt calledBy, MOB character = null)
         {
             ReturnTo = calledBy;
             User = calledBy?.User;
@@ -49,7 +49,7 @@ namespace EspressoMUD.Prompts
         /// Create a 'subprompt' that will return to the previous prompt when this one is finished.
         /// </summary>
         /// <param name="calledBy"></param>
-        public StandardHeldPrompt(HeldPrompt calledBy, MOB character, Client player)
+        public StandardHeldPrompt(StandardHeldPrompt calledBy, MOB character, Client player)
         {
             ReturnTo = calledBy;
             User = player;
@@ -66,6 +66,45 @@ namespace EspressoMUD.Prompts
         {
             NextPrompt = null;
             base.OnTransition();
+        }
+
+        /// <summary>
+        /// Attempt to transition to the next prompt. This must be called during the prompt, and there must not be a next prompt yet.
+        /// Caller still needs to finish processing the current prompt to continue to the next prompt.
+        /// </summary>
+        /// <param name="nextPrompt"></param>
+        /// <param name="setThisAsReturn"></param>
+        /// <returns>True if this will call the next prompt, else false.</returns>
+        public bool TransitionTo(HeldPrompt nextPrompt)
+        {
+            if (InPrompt && Lock.IsWriteLockHeld && NextPrompt == null)
+            {
+                NextPrompt = nextPrompt;
+                return true;
+            }
+            else
+                return false;
+        }
+
+        /// <summary>
+        /// Attempt to transition to the next prompt. This must be called during the prompt, and there must not be a next prompt yet.
+        /// Caller still needs to finish processing the current prompt to continue to the next prompt.
+        /// </summary>
+        /// <param name="nextPrompt"></param>
+        /// <param name="setThisAsReturn">Attempts to Note: No warning is given if this fails.</param>
+        /// <returns>True if this will call the next prompt, else false.</returns>
+        public bool TransitionTo(StandardHeldPrompt nextPrompt, bool setThisAsReturn)
+        {
+            if (TransitionTo(nextPrompt))
+            {
+                if (setThisAsReturn && nextPrompt != null && nextPrompt.ReturnTo == null)
+                {
+                    nextPrompt.ReturnTo = this;
+                }
+                return true;
+            }
+            else
+                return false;
         }
 
         public override sealed HeldPrompt Respond(string userString)
@@ -114,13 +153,23 @@ namespace EspressoMUD.Prompts
             }
             return (Canceled ? ReturnTo : null);
         }
+        
+        protected void RecursiveCancel()
+        {
+            if (ReturnTo != null)
+            {
+                ReturnTo.InnerCancel();
+                ReturnTo.RecursiveCancel();
+                ReturnTo = null;
+            }
+        }
 
         protected void Cancel(bool andReturn = true)
         {
             InnerCancel();
             if (!andReturn)
             {
-                ReturnTo = null;
+                RecursiveCancel();
             }
             if (!Canceled)
             {

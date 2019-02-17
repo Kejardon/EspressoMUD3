@@ -1,4 +1,5 @@
-﻿using EspressoMUD.Properties;
+﻿using EspressoMUD.Prompts;
+using EspressoMUD.Properties;
 using KejUtils;
 using System;
 using System.Collections.Generic;
@@ -30,7 +31,101 @@ namespace EspressoMUD
             }
         }
 
-        public static MovementDirection ParseAsDirection(StringWords text, IMOB mob, ref int startIndex, ref int endIndex, bool requireAll = false, bool getDistance = true)
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="mob"></param>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <param name="onPrompt"></param>
+        /// <param name="addToPrompt"></param>
+        /// <returns></returns>
+        public static Item FindKnownItem(StringWords input, MOB mob, int start, int end, SelectAction onPrompt = null, StandardHeldPrompt addToPrompt = null)
+        {
+            List<Item> options = FindKnownItems(input, mob, start, end);
+            if (options.Count == 1)
+                return options[0];
+
+            Client client = mob.Client;
+            if (client == null)
+            {
+                //TODO: Have an NPC say they don't know what item they were told to find?
+                return null;
+            }
+
+            if (options.Count == 0)
+            {
+                client.sendMessage("You don't see a '" + input.StringRange(start, end) + "'");
+                return null;
+            }
+
+            if (onPrompt == null)
+            {
+                client.sendMessage("There are too many things that fit that description.");
+                return null;
+            }
+
+            SelectFromList<Item> itemSelectPrompt = new SelectFromList<Item>(onPrompt.Invoke);
+            if (addToPrompt == null || !addToPrompt.TransitionTo(itemSelectPrompt, true))
+            {
+                client.Prompt(itemSelectPrompt);
+            }
+            return null;
+        }
+        public static List<Item> FindKnownItems(StringWords input, MOB mob, int start, int end)
+        {
+            input.ValidateEndIndex(ref end);
+            Item[] items = GeneralUtilities.VisibleItems(mob, mob.Body.Position);
+            List<Item> matchingItems = new List<Item>();
+            foreach (Item item in items)
+            {
+                if (mob.CanRecognize(item, input, start, end))
+                    matchingItems.Add(item);
+            }
+            return matchingItems;
+        }
+
+        /// <summary>
+        /// Check if 'input' (or a specific part of it) can be found inside of 'text'.
+        /// </summary>
+        /// <param name="input">Text to search for</param>
+        /// <param name="text">Text to look inside for matches</param>
+        /// <param name="startIndex">First word of 'input' to start searching for</param>
+        /// <param name="endIndex">After last word of 'input' to search for (exclusive end)</param>
+        /// <returns>True if text contains input in the same order.</returns>
+        public static bool CheckAutoCompleteText(StringWords input, string text, int startIndex = 0, int endIndex = -1)
+        {
+            input.ValidateEndIndex(ref endIndex);
+            if (startIndex >= endIndex) throw new ArgumentException("startIndex must be before endIndex");
+
+            int textIndex = 0;
+            for (int inputIndex = 0; textIndex < text.Length; textIndex++)
+            {
+                string wordToFind = input.Segments[inputIndex];
+
+                textIndex = text.IndexOf(wordToFind, textIndex);
+                if (textIndex == -1) return false; //Input word was not found.
+
+                if (textIndex != 0)
+                { //Check to make sure this could reasonably be the start of a word. If not, continue at the next character.
+                    char prevChar = text[textIndex - 1];
+                    //TODO: Finetune below checks.
+                    //if (!Char.IsWhiteSpace(prevChar)) continue;
+                    if (Char.IsLetterOrDigit(prevChar)) continue;
+                }
+
+                //Found a match. Continue with the next word.
+                inputIndex++;
+                if (inputIndex == endIndex) return true; //No next word, found all the words.
+                textIndex += wordToFind.Length; //Skip the matched text (plus 1 character from loop counter)
+            }
+            //Ran out of letters before matching all the words.
+            return false;
+        }
+
+        public static MovementDirection ParseAsDirection(StringWords text, MOB mob, ref int startIndex, ref int endIndex, bool requireAll = false, bool getDistance = true)
         {
             text.ValidateEndIndex(ref endIndex);
 
@@ -90,7 +185,7 @@ namespace EspressoMUD
         /// <param name="distance">Distance to move, in millimeters. If -1, then parsing failed.</param>
         /// <param name="startIndex">Where the distance is expected to be.</param>
         /// <returns>Number of words successfully parsed. 0 if failed, up to 2 if succeeded. </returns>
-        public static int ParseAsDistance(StringWords text, IMOB mob, out int distance, int startIndex = 0, int endIndex = 0)
+        public static int ParseAsDistance(StringWords text, MOB mob, out int distance, int startIndex = 0, int endIndex = 0)
         {
 
             //TODO: Scaling to mob somehow? Need to consider design. Probably won't happen here, but passing mob just so it's futureproofed.
@@ -299,7 +394,33 @@ namespace EspressoMUD
                 return manager.GetString(str, culture);
             }
         }
+
+
+        public class SelectFromList<T> : MenuPrompt<T>
+        {
+            //public SelectFromList(HeldPrompt calledBy = null) : base(calledBy) { }
+            protected Action<T> actionToDo;
+
+            public SelectFromList(Action<T> doWithThing, StandardHeldPrompt calledBy = null) : base(calledBy)
+            {
+                actionToDo = doWithThing;
+            }
+
+            private void UseSelectedOption()
+            {
+                actionToDo(SelectedValue);
+            }
+
+            public void AddOption(T choice, string description, string nameOfChoice = null)
+            {
+                this.AddOption(description, UseSelectedOption, choice, nameOfChoice);
+            }
+
+        }
     }
+
+    public delegate void SelectAction(Item item);
+
     /// <summary>
     /// Class to aid with parsing user input.
     /// </summary>

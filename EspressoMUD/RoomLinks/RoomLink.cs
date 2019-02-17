@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public class RoomLink : IRoomLink
+    public class RoomLink : IRoomLinkContainer
     {
+        public RoomLink RoomLinkObject { get { return this; } }
 
         //ISaveable template
         public SaveValues SaveValues { get; set; }

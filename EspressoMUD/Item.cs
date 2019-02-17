@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public class Item : IItem, ISaveable
+    public class Item : IItemContainer, ISaveable
     {
+        public Item ItemObject { get { return this; } }
+
         [SaveField("Name")]
         private string name;
         public string Name

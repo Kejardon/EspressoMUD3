@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public interface IAccount : ISaveable
+    public interface IAccountContainer : ISaveable
     {
+        Account AccountObject { get; }
 
     }
 }

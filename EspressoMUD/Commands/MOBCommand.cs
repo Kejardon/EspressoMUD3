@@ -8,7 +8,7 @@ namespace EspressoMUD
 {
     abstract public class MOBCommand : Command
     {
-        public override bool canUse(Client user, IMOB mob)
+        public override bool canUse(Client user, MOB mob)
         {
             return mob != null;
         }

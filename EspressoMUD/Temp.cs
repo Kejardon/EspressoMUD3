@@ -123,43 +123,43 @@ namespace EspressoMUD
             }
         }
     }
-    public class ListMOBs : ListSaveables<IMOB>
+    public class ListMOBs : ListSaveables<MOB>
     {
         protected override ObjectType Type
         {
             get
             {
-                return ObjectType.TypeByClass[typeof(IMOB)];
+                return ObjectType.TypeByClass[typeof(MOB)];
             }
         }
     }
-    public class ListItems : ListSaveables<IItem>
+    public class ListItems : ListSaveables<Item>
     {
         protected override ObjectType Type
         {
             get
             {
-                return ObjectType.TypeByClass[typeof(IItem)];
+                return ObjectType.TypeByClass[typeof(Item)];
             }
         }
     }
-    public class ListRooms : ListSaveables<IRoom>
+    public class ListRooms : ListSaveables<Room>
     {
         protected override ObjectType Type
         {
             get
             {
-                return ObjectType.TypeByClass[typeof(IRoom)];
+                return ObjectType.TypeByClass[typeof(Room)];
             }
         }
     }
-    public class ListRoomLinks : ListSaveables<IRoomLink>
+    public class ListRoomLinks : ListSaveables<RoomLink>
     {
         protected override ObjectType Type
         {
             get
             {
-                return ObjectType.TypeByClass[typeof(IRoomLink)];
+                return ObjectType.TypeByClass[typeof(RoomLink)];
             }
         }
     }
@@ -176,7 +176,7 @@ namespace EspressoMUD
     {
         public int Id { get; set; }
         public Account Value { get; set; }
-        public Type baseType { get { return typeof(IAccount); } }
+        public Type baseType { get { return typeof(Account); } }
 
         public DelayedAccount(int id, Account acc = null)
         {
@@ -193,7 +193,7 @@ namespace EspressoMUD
     {
         public int Id { get; set; }
         public MOB Value { get; set; }
-        public Type baseType { get { return typeof(IMOB); } }
+        public Type baseType { get { return typeof(MOB); } }
         private Account Account;
 
         public DelayedMOB(int id, MOB mob = null, Account account = null)
@@ -216,21 +216,21 @@ namespace EspressoMUD
         }
         public override bool Equals(object obj)
         {
-            int thisId = Id == -1 ? Value.GetSaveID(ObjectType.TypeByClass[typeof(IMOB)]) : Id;
+            int thisId = Id == -1 ? Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) : Id;
             if (obj is DelayedMOB)
             {
                 DelayedMOB otherDelayed = (DelayedMOB)obj;
-                int otherId = otherDelayed.Id == -1 ? otherDelayed.Value.GetSaveID(ObjectType.TypeByClass[typeof(IMOB)]) : otherDelayed.Id;
+                int otherId = otherDelayed.Id == -1 ? otherDelayed.Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) : otherDelayed.Id;
                 return otherId == thisId;
             }
             MOB mob = obj as MOB;
             if (mob == null) return false;
-            return mob.GetSaveID(ObjectType.TypeByClass[typeof(IMOB)]) == thisId;
+            return mob.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) == thisId;
         }
         public override int GetHashCode()
         {
             if (Id != -1) return Id;
-            return Value.GetSaveID(ObjectType.TypeByClass[typeof(IMOB)]);
+            return Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]);
         }
     }
 

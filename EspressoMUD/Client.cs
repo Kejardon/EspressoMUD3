@@ -447,7 +447,7 @@ namespace EspressoMUD
             return true;
         }
 
-        public void TryFindCommand(string input, IMOB currentMob)
+        public void TryFindCommand(string input, MOB currentMob)
         {
             string[] words = input.Split(' ');
             

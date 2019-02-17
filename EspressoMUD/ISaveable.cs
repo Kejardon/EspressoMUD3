@@ -13,7 +13,7 @@ namespace EspressoMUD
     public interface ISaveable
     {
         /// <summary>
-        /// Save ID of the object for a given object type. If -1, object is loading.
+        /// Save ID of the object for a given object type. If -1, object is loading or has never been saved yet.
         /// </summary>
         /// <param name="databaseGroup">Object type to load an associated ID for. If null, a default should be used.</param>
         /// <returns></returns>
@@ -224,13 +224,19 @@ namespace EspressoMUD
                 return new SaveStringParser(field, (string)Default);
 
             if (field.FieldType == typeof(ListMOBs))
-                return new SaveListMOBsParser(field);
+                return new SaveGenericListParser<ListMOBs, MOB>(field);
+                //return new SaveListMOBsParser(field);
             if (field.FieldType == typeof(ListItems))
                 return new SaveListItemsParser(field);
             if (field.FieldType == typeof(ListRooms))
                 return new SaveListRoomsParser(field);
             if (field.FieldType == typeof(ListRoomLinks))
                 return new SaveListRoomLinksParser(field);
+
+            if (field.FieldType == typeof(MOB))
+                return new SaveMOBParser(field);
+            if (field.FieldType == typeof(Account))
+                return new SaveAccountParser(field);
 
             throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved field.");
         }
@@ -559,5 +565,67 @@ namespace EspressoMUD
         private Func<ISaveable, ListRoomLinks> Getter;
         private Action<ISaveable, ListRoomLinks> Setter;
     }
-    
+
+    //TODO: Does this work instead? Would be cleaner.
+    public class SaveGenericListParser<T,U> : SaveableParser where T : ListSaveables<U>, new() where U : ISaveable
+    {
+        public SaveGenericListParser(FieldInfo field)
+        {
+            Getter = GenerateGetter<T>(field);
+            Setter = GenerateSetter<T>(field);
+        }
+        public override void Get(ISaveable source, BinaryWriter writer)
+        {
+            T list = Getter.Invoke(source);
+            int[] saveIDs = list.GetIDs();
+            foreach (int i in saveIDs) writer.Write(i);
+        }
+        public override void Set(ISaveable target, BinaryReader reader)
+        {
+            int[] array = new int[reader.BaseStream.Length / sizeof(int)];
+            for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
+            T list = new T();
+            list.SetIDs(array);
+            Setter.Invoke(target, list);
+        }
+        private Func<ISaveable, T> Getter;
+        private Action<ISaveable, T> Setter;
+    }
+
+    //TODO: Does this work? Would be cleaner.
+    public abstract class SaveGenericObjectTypeObject<T> : SaveableParser where T : class, ISaveable
+    {
+        protected abstract Type ObjectsType { get; }
+        public SaveGenericObjectTypeObject(FieldInfo field)
+        {
+            Getter = GenerateGetter<T>(field);
+            Setter = GenerateSetter<T>(field);
+        }
+        public override void Get(ISaveable source, BinaryWriter writer)
+        {
+            T reference = Getter.Invoke(source);
+            if (reference == null) return;
+            int saveID = reference.GetSaveID(ObjectType.TypeByClass[ObjectsType]);
+            writer.Write(saveID);
+        }
+        public override void Set(ISaveable target, BinaryReader reader)
+        {
+            int saveID = reader.ReadInt32();
+            T reference = ObjectType.TypeByClass[ObjectsType].Get(saveID, true, true) as T;
+            Setter.Invoke(target, reference);
+        }
+        private Func<ISaveable, T> Getter;
+        private Action<ISaveable, T> Setter;
+    }
+    public class SaveMOBParser : SaveGenericObjectTypeObject<MOB>
+    {
+        public SaveMOBParser(FieldInfo field) : base(field) { }
+        protected override Type ObjectsType { get { return typeof(MOB); } }
+    }
+    public class SaveAccountParser : SaveGenericObjectTypeObject<Account>
+    {
+        public SaveAccountParser(FieldInfo field) : base(field) { }
+        protected override Type ObjectsType { get { return typeof(Account); } }
+    }
+
 }

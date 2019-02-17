@@ -67,14 +67,14 @@ namespace EspressoMUD
         /// <param name="user"></param>
         /// <param name="mob"></param>
         /// <returns>True if this command should be found in the mob's list of commands</returns>
-        public abstract bool canUse(Client user, IMOB mob);
+        public abstract bool canUse(Client user, MOB mob);
 
         /// <summary>
         /// Runs this command with the given mob and arguments.
         /// </summary>
         /// <param name="mob">Mob to perform the command.</param>
         /// <param name="command">Performed command data</param>
-        public abstract void execute(IMOB mob, QueuedCommand command);
+        public abstract void execute(MOB mob, QueuedCommand command);
 
         /// <summary>
         /// Runs this command with the given user and arguments.

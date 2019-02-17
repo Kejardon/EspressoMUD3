@@ -7,8 +7,14 @@ using EspressoMUD.Prompts;
 
 namespace EspressoMUD
 {
-    public class MOB : IMOB, ISaveable
+    public class MOB : IMOBContainer, ISaveable
     {
+        /// <summary>
+        /// Get the MOB associated with this IMOBContainer
+        /// </summary>
+        public MOB MOBObject { get { return this; } }
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -29,16 +35,35 @@ namespace EspressoMUD
             }
         }
 
+        public Item Body { get; } //TODO: Create and replace this with a Body class that extends Item?
+
+        //Room MainLocation { get; }
+
+        public bool CanRecognize(Item item, StringWords input, int start, int end)
+        {
+            //TODO eventually: Features like sight flags and ignore color codes and so on. For now...
+
+            if(TextParsing.CheckAutoCompleteText(input,item.Name,start,end) || TextParsing.CheckAutoCompleteText(input,item.Description,start,end))
+            {
+                return true;
+            }
+            return false;
+        }
+
+
+
         [SaveField("Name")]
         private string name;
         public string Name { get { return name; } set { name = value; this.Save(); } }
 
-        public Account OwningAccount = null;
+        [SaveField("Account")]
+        private Account owningAccount;
+        public Account OwningAccount { get { return owningAccount; } set { owningAccount = value; this.Save(); } }
 
         //ISaveable template
         public SaveValues SaveValues { get; set; }
         [SaveID("ID")]
-        protected int MobID = -1; //Only supports IMOB ObjectType, so assume IMOB
+        protected int MobID = -1; //Only supports IMOBContainer ObjectType, so assume IMOBContainer
         public int GetSaveID(ObjectType databaseGroup) { return MobID; }
         public void SetSaveID(ObjectType databaseGroup, int id) { MobID = id; }
 

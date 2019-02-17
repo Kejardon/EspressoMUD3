@@ -13,7 +13,7 @@ namespace EspressoMUD.Prompts
     {
         protected MOB newChar;
         protected NewCharacterState state = NewCharacterState.Name;
-        public NewCharacterPrompt(HeldPrompt calledBy) : base(calledBy)
+        public NewCharacterPrompt(StandardHeldPrompt calledBy) : base(calledBy)
         {
             newChar = new MOB();
         }

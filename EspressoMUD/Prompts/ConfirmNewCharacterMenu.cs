@@ -12,7 +12,7 @@ namespace EspressoMUD.Prompts
     public class ConfirmNewCharacterMenu : MenuPrompt
     {
         MOB newChar;
-        public ConfirmNewCharacterMenu(HeldPrompt calledBy, MOB mob) : base(calledBy)
+        public ConfirmNewCharacterMenu(StandardHeldPrompt calledBy, MOB mob) : base(calledBy)
         {
             newChar = mob;
         }

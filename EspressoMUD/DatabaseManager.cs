@@ -129,7 +129,7 @@ namespace EspressoMUD
         /// <returns></returns>
         private static string GetDatabaseFilename(ObjectType owningType)
         {
-            return owningType.RelatedInterface.Name + IndexExtension;
+            return owningType.BaseClass.Name + IndexExtension;
         }
         /// <summary>
         /// Get the filename of the class's variable-length data for objects.
@@ -612,7 +612,7 @@ namespace EspressoMUD
                     List<ObjectType> implementedTypes = new List<ObjectType>();
                     foreach (ObjectType owningType in ObjectType.TypeByID)
                     {
-                        if (owningType != null && owningType.RelatedInterface.IsAssignableFrom(type))
+                        if (owningType != null && owningType.BaseClass.IsAssignableFrom(type))
                         {
                             implementedTypes.Add(owningType);
                         }
@@ -662,7 +662,7 @@ namespace EspressoMUD
                     SetStageFile(ObjectTypesFile, Math.Max(oldObjectTypesLength, sizeof(ushort)));
                     foreach (ObjectType newOT in NewObjectTypes)
                     {
-                        writer.Write(newOT.RelatedInterface.Name);
+                        writer.Write(newOT.BaseClass.Name);
                     }
                     #endregion
                 }

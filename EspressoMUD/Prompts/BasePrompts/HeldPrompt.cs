@@ -10,21 +10,22 @@ namespace EspressoMUD.Prompts
 {
     public abstract class HeldPrompt
     {
-        private static Dictionary<Thread, HeldPrompt> promptMap = new Dictionary<Thread, HeldPrompt>();
+        //Not sure I want this, but there's a good chance I do.
+        //private static Dictionary<Thread, HeldPrompt> promptMap = new Dictionary<Thread, HeldPrompt>();
 
-        public static HeldPrompt CurrentPrompt()
-        {
-            return CurrentPrompt(Thread.CurrentThread);
-        }
-        public static HeldPrompt CurrentPrompt(Thread currentThread)
-        {
-            HeldPrompt value;
-            if (promptMap.TryGetValue(currentThread, out value))
-            {
-                return value;
-            }
-            return null;
-        }
+        //public static HeldPrompt CurrentPrompt()
+        //{
+        //    return CurrentPrompt(Thread.CurrentThread);
+        //}
+        //public static HeldPrompt CurrentPrompt(Thread currentThread)
+        //{
+        //    HeldPrompt value;
+        //    if (promptMap.TryGetValue(currentThread, out value))
+        //    {
+        //        return value;
+        //    }
+        //    return null;
+        //}
 
         /// <summary>
         /// The user that this prompt goes to.
@@ -71,39 +72,40 @@ namespace EspressoMUD.Prompts
         //Note: This probably needs a bit of extra work to be better thread safe, in case multiple things cause a Respond at once.
         public abstract HeldPrompt Respond(string userString);
 
-        /// <summary>
-        /// Enter a prompt context. Should probably only be used by Client for 
-        /// </summary>
-        /// <returns></returns>
-        public IDisposable Enter()
-        {
-            Thread currentThread = Thread.CurrentThread;
-            HeldPrompt value;
-            if (promptMap.TryGetValue(currentThread, out value))
-            {
-                throw new InvalidOperationException("Can't enter multiple prompts in a thread.");
-            }
-            promptMap[currentThread] = this;
-            return new PromptContext(this);
-        }
+        //Probably will delete this.
+        ///// <summary>
+        ///// Enter a prompt context. Should probably only be used by Client for 
+        ///// </summary>
+        ///// <returns></returns>
+        //public IDisposable Enter()
+        //{
+        //    Thread currentThread = Thread.CurrentThread;
+        //    HeldPrompt value;
+        //    if (promptMap.TryGetValue(currentThread, out value))
+        //    {
+        //        throw new InvalidOperationException("Can't enter multiple prompts in a thread.");
+        //    }
+        //    promptMap[currentThread] = this;
+        //    return new PromptContext(this);
+        //}
 
-        private struct PromptContext : IDisposable
-        {
-            HeldPrompt parent;
-            public PromptContext(HeldPrompt prompt)
-            {
-                parent = prompt;
-            }
-            public void Dispose()
-            {
-                Thread currentThread = Thread.CurrentThread;
-                HeldPrompt value;
-                if (!promptMap.TryGetValue(currentThread, out value))
-                {
-                    throw new InvalidOperationException("Must enter a prompt context before leaving it.");
-                }
-                promptMap[currentThread] = null;
-            }
-        }
+        //private struct PromptContext : IDisposable
+        //{
+        //    HeldPrompt parent;
+        //    public PromptContext(HeldPrompt prompt)
+        //    {
+        //        parent = prompt;
+        //    }
+        //    public void Dispose()
+        //    {
+        //        Thread currentThread = Thread.CurrentThread;
+        //        HeldPrompt value;
+        //        if (!promptMap.TryGetValue(currentThread, out value))
+        //        {
+        //            throw new InvalidOperationException("Must enter a prompt context before leaving it.");
+        //        }
+        //        promptMap[currentThread] = null;
+        //    }
+        //}
     }
 }

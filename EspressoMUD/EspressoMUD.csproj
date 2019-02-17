@@ -55,10 +55,11 @@
     <Compile Include="Commands\MOBCommand.cs" />
     <Compile Include="DatabaseManager.cs" />
     <Compile Include="Events\RoomEvent.cs" />
-    <Compile Include="IItem.cs" />
+    <Compile Include="IItemContainer.cs" />
     <Compile Include="IPosition.cs" />
-    <Compile Include="IRoomLink.cs" />
+    <Compile Include="IRoomLinkContainer.cs" />
     <Compile Include="Item.cs" />
+    <Compile Include="Libraries\GeneralUtilities.cs" />
     <Compile Include="Libraries\TextParsing.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Prompts\GameplayPrompt.cs" />
@@ -68,9 +69,9 @@
     <Compile Include="InputHandlers\EscapeHandlerType.cs" />
     <Compile Include="InputHandlers\IACHandlerType.cs" />
     <Compile Include="InputHandlers\InputHandler.cs" />
-    <Compile Include="IMOB.cs" />
+    <Compile Include="IMOBContainer.cs" />
     <Compile Include="InputHandlers\InputHandlerType.cs" />
-    <Compile Include="IRoom.cs" />
+    <Compile Include="IRoomContainer.cs" />
     <Compile Include="Metadata.cs" />
     <Compile Include="MOB.cs" />
     <Compile Include="ObjectType.cs" />

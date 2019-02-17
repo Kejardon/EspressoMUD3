@@ -8,8 +8,8 @@ namespace EspressoMUD.Prompts
 {
     public class GameplayPrompt : HeldPrompt
     {
-        IMOB MainCharacter;
-        public GameplayPrompt(Client user, IMOB character)
+        MOB MainCharacter;
+        public GameplayPrompt(Client user, MOB character)
         {
             MainCharacter = character;
             User = user;

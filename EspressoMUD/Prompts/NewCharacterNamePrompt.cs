@@ -9,7 +9,7 @@ namespace EspressoMUD.Prompts
     public class NewCharacterNamePrompt : StandardHeldPrompt
     {
         MOB newChar;
-        public NewCharacterNamePrompt(HeldPrompt calledBy, MOB mob) : base(calledBy)
+        public NewCharacterNamePrompt(StandardHeldPrompt calledBy, MOB mob) : base(calledBy)
         {
             newChar = mob;
         }

@@ -15,7 +15,7 @@ namespace EspressoMUD
             UniqueCommand = "go";
             AlternateCommands = new string[] { "move" };
         }
-        public override void execute(IMOB mob, QueuedCommand command)
+        public override void execute(MOB mob, QueuedCommand command)
         {
             /*TODO: magic parsing to get a destination from the user's input
             Form is always (optional direction/distance) (optional preposition) (optional target)
@@ -99,8 +99,11 @@ namespace EspressoMUD
             prepEnum = null;
 
         foundPreposition:
-            index = -1;
-            Item target = TextParsing.FindKnownItem(goToInput, mob, ref start, ref index); //TODO: Implement this to find visible items for a player. This should maybe also allow a prompt?
+            //index = -1;
+
+            ThreadManager.StartEvent(mob.Body.Position.forRoom);
+
+            Item target = TextParsing.FindKnownItem(goToInput, mob, start, -1); //TODO: Implement this to find visible items for a player. This should maybe also allow a prompt?
             //TODO: Handle going to the target found / if a target is found.
 
 
