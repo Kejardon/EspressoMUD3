@@ -26,6 +26,12 @@ namespace EspressoMUD
             //"Mook in red shirt {a} leaves east. Mook in red shirt {a} enters from the west." <-- implies same mook but maybe they are actually different but unusually similar.
             //"Mook in red shirt {a} leaves east. Damsel in distress {a} enters from the east." <-- similarly gives away that mook is disguised as damsel.
 
+            //Another Related idea TODO eventually:
+            //Allow user to ASSIGN shortcuts to items. This needs to be fundamentally different then the other item shortcuts though, maybe with a user-selected option for each item.
+            // - Can remember only the item, assume it's the same item if see something similar elsewhere.
+            // - Remember the item and position, assume it's the same item if see something similar in the same place later.
+            // - Track the item, similar as above? probably not make this an option.
+
             return startingRoom.GetItems();
             
         }

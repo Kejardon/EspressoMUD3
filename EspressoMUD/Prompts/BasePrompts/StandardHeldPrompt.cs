@@ -11,6 +11,7 @@ namespace EspressoMUD.Prompts
     /// <summary>
     /// A HeldPrompt base with more common safeguards/handling. Prevents re-entry with an exception, prevents concurrent calls silently.
     /// Subclasses should implement InnerRespond instead of Respond. InnerValid and InnerCancel may optionally be overridden.
+    /// See HeldPrompt.cs for use-case remarks.
     /// </summary>
     public abstract class StandardHeldPrompt : HeldPrompt
     {

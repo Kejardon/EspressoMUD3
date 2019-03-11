@@ -48,6 +48,13 @@ namespace KejUtils
                 }
             }
         }
+        /// <summary>
+        /// Try to look up a value from a given input.
+        /// </summary>
+        /// <param name="key">Input to search for.</param>
+        /// <param name="value">Found value, if a single one exists.</param>
+        /// <param name="options">Found options, if there are multiple values that 'input' matches</param>
+        /// <returns>True if a single value was found. False if 0 or many options were found.</returns>
         public bool TryGet(string key, out T value, out List<T> options)
         {
             if (ignoreCase) key = key.ToUpper();

@@ -16,11 +16,21 @@ namespace EspressoMUD.Prompts
         protected virtual bool AllowCommands() { return false; }
         protected string UserInput = null;
 
-        protected MenuPromptBase(StandardHeldPrompt calledBy) : base(calledBy)
+        protected MenuPromptBase(StandardHeldPrompt calledBy, MOB character = null) : base(calledBy, character)
+        {
+        }
+        protected MenuPromptBase(StandardHeldPrompt calledBy, MOB character, Client player) : base(calledBy, character, player)
         {
         }
 
 
+        /// <summary>
+        /// Usable delegate for when a user decides to quit the menu.
+        /// </summary>
+        protected void EndThisPromptOption()
+        {
+            Cancel(true);
+        }
 
         public override string PromptMessage
         {
@@ -56,8 +66,11 @@ namespace EspressoMUD.Prompts
     public abstract class MenuPrompt : MenuPromptBase
     {
         protected ShortcutDictionary<MenuAction> options = new ShortcutDictionary<MenuAction>(true);
-
-        public MenuPrompt(StandardHeldPrompt calledBy) : base(calledBy)
+        
+        protected MenuPrompt(StandardHeldPrompt calledBy, MOB character = null) : base(calledBy, character)
+        {
+        }
+        protected MenuPrompt(StandardHeldPrompt calledBy, MOB character, Client player) : base(calledBy, character, player)
         {
         }
 
@@ -133,7 +146,11 @@ namespace EspressoMUD.Prompts
         protected ShortcutDictionary<DictionaryEntry> options = new ShortcutDictionary<DictionaryEntry>(true);
         protected T SelectedValue;
 
-        public MenuPrompt(StandardHeldPrompt calledBy) : base(calledBy)
+
+        protected MenuPrompt(StandardHeldPrompt calledBy, MOB character = null) : base(calledBy, character)
+        {
+        }
+        protected MenuPrompt(StandardHeldPrompt calledBy, MOB character, Client player) : base(calledBy, character, player)
         {
         }
 

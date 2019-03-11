@@ -53,8 +53,12 @@
     <Compile Include="Commands\DirectionCommand.cs" />
     <Compile Include="Commands\Go.cs" />
     <Compile Include="Commands\MOBCommand.cs" />
-    <Compile Include="DatabaseManager.cs" />
+    <Compile Include="Database\DatabaseManager.cs" />
+    <Compile Include="Database\IModifiable.cs" />
+    <Compile Include="Database\ModifyAttributes.cs" />
+    <Compile Include="Database\SaveValues.cs" />
     <Compile Include="Events\RoomEvent.cs" />
+    <Compile Include="GlobalValues.cs" />
     <Compile Include="IItemContainer.cs" />
     <Compile Include="IPosition.cs" />
     <Compile Include="IRoomLinkContainer.cs" />
@@ -62,6 +66,9 @@
     <Compile Include="Libraries\GeneralUtilities.cs" />
     <Compile Include="Libraries\TextParsing.cs" />
     <Compile Include="Log.cs" />
+    <Compile Include="Prompts\AdminModify\AdminModifyField.cs" />
+    <Compile Include="Prompts\AdminModify\AdminModifyInput.cs" />
+    <Compile Include="Prompts\AdminModify\AdminSelectModify.cs" />
     <Compile Include="Prompts\GameplayPrompt.cs" />
     <Compile Include="Prompts\BasePrompts\HeldPrompt.cs" />
     <Compile Include="IAccount.cs" />
@@ -78,15 +85,15 @@
     <Compile Include="Program.cs" />
     <Compile Include="Prompts\BasePrompts\MenuPrompt.cs" />
     <Compile Include="Prompts\BasePrompts\StandardHeldPrompt.cs" />
-    <Compile Include="Prompts\ConfirmDeleteCharacter.cs" />
-    <Compile Include="Prompts\ConfirmNewCharacterMenu.cs" />
-    <Compile Include="Prompts\DeleteCharacterPrompt.cs" />
-    <Compile Include="Prompts\LoggedInMenu.cs" />
+    <Compile Include="Prompts\Account\ConfirmDeleteCharacter.cs" />
+    <Compile Include="Prompts\Account\CharacterCreation\ConfirmNewCharacterMenu.cs" />
+    <Compile Include="Prompts\Account\DeleteCharacterPrompt.cs" />
+    <Compile Include="Prompts\Account\LoggedInMenu.cs" />
     <Compile Include="Prompts\LoginPrompt.cs" />
-    <Compile Include="Prompts\NewCharacterNamePrompt.cs" />
-    <Compile Include="Prompts\NewCharacterPrompt.cs" />
+    <Compile Include="Prompts\Account\CharacterCreation\NewCharacterNamePrompt.cs" />
+    <Compile Include="Prompts\Account\CharacterCreation\NewCharacterPrompt.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ISaveable.cs" />
+    <Compile Include="Database\ISaveable.cs" />
     <Compile Include="Properties\ResourcesMoveDistances.Designer.cs">
       <DependentUpon>ResourcesMoveDistances.resx</DependentUpon>
       <AutoGen>True</AutoGen>
@@ -106,6 +113,7 @@
     <Compile Include="Rooms\Room.cs" />
     <Compile Include="RoomLinks\OpenLink.cs" />
     <Compile Include="RoomLinks\RoomLink.cs" />
+    <Compile Include="Database\SaveAttributes.cs" />
     <Compile Include="Server.cs" />
     <Compile Include="Temp.cs" />
     <Compile Include="ThreadManager.cs" />

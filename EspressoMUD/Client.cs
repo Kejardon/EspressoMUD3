@@ -487,7 +487,30 @@ namespace EspressoMUD
         /// <param name="toPrompt">Internal 'position' of the prompt being responded to in this.prompts</param>
         private void RespondToPrompt(string input, HeldPrompt prompt, int toPrompt = -1)
         {
-            HeldPrompt next = prompt.Respond(input); //Skip prompt number + space
+            HeldPrompt next;
+            try
+            {
+                next = prompt.Respond(input); //Skip prompt number + space
+            }
+            catch (Exception e)
+            {
+                //TODO: Error logging
+                sendMessage("An error has occurred while processing your input: ^n" + e.ToString());
+                if (!prompt.IsStillValid())
+                {
+                    if (this.mainPrompt == prompt)
+                    {
+                        sendMessage("Logging out to get back to a working state.");
+                        LogOut();
+                    }
+                    else
+                    {
+                        sendMessage("Aborting broken prompt " + toPrompt);
+                        this.RemovePrompt(prompt);
+                    }
+                }
+                return;
+            }
             if (next != null && !this.clearingPrompts)
             {
                 lock (this.prompts)

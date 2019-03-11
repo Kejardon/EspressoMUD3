@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public interface IMOBContainer : ISaveable
+    public interface IMOBContainer
     {
         MOB MOBObject { get; }
     }

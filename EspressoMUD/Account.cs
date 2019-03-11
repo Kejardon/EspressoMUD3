@@ -30,6 +30,13 @@ namespace EspressoMUD
             get { return password; }
             set { password = EncryptionMethod.Encrypt(value); this.Save(); }
         }
+        [SaveField("Admin", Default = false)]
+        private bool isAdmin = false;
+        public bool IsAdmin
+        {
+            get { return isAdmin; }
+            set { isAdmin = value; this.Save(); }
+        }
         [SaveField("Characters")]
         private ListMOBs unloadedCharacters = new ListMOBs();
 

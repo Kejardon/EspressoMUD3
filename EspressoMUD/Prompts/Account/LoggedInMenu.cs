@@ -36,6 +36,10 @@ namespace EspressoMUD.Prompts
             AddOption("Delete a character.", () => { NextPrompt = new DeleteCharacterPrompt(this); }, "Delete");
             AddOption("Log out to log into another account.", () => { User.LogOut(); Cancel(false); }, "Log");
             AddOption("Disconnect from the MUD.", () => { User.Disconnect(); }, "Disconnect");
+            if (User.LoggedInAccount.IsAdmin)
+            {
+                AddOption("Modify MUD-wide settings", () => { NextPrompt = new AdminSelectModify(this, User, new GlobalValues()); }, "Modify");
+            }
             MOB[] characters = User.LoggedInAccount.Characters;
             for (int i = 0; i < characters.Length; i++)
             {

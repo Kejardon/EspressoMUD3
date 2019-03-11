@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public interface IItemContainer
+    public interface IModifiable
     {
-        Item ItemObject { get; }
     }
 }

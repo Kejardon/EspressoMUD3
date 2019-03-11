@@ -39,6 +39,7 @@ namespace EspressoMUD.Prompts
             Account account = User.LoggedInAccount;
             if (account != null && newChar != null)
             {
+                //TODO: Set starting location (from default) for newChar.
                 newChar.Save(true);
                 account.AddCharacter(newChar);
             }

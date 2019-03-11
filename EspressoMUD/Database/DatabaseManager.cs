@@ -42,7 +42,6 @@ namespace EspressoMUD
 
         private static System.Threading.Thread DatabaseThread;
 
-        private static bool GlobalsIsDirty = false;
 
         private static int NextClassID = 0;
         
@@ -398,15 +397,64 @@ namespace EspressoMUD
             return writer;
         }
 
+        private static void WriteGlobalsToBuffer(BinaryWriter writer)
+        {
+            writer.Write(NextClassID);
+                int defaultRoom = -1;
+
+                Room room = GlobalValues.DefaultStartingRoom;
+                if (room != null) defaultRoom = room.GetSetSaveID(ObjectType.TypeByClass[typeof(Room)]);
+            writer.Write(defaultRoom);
+        }
+
         /// <summary>
-        /// Save data to the Globals file for all generic MUD-state data.
+        /// Save data to the Globals file for all generic MUD-state data. Only called when the PreStage phase is skipped.
         /// </summary>
-        public static void StageGlobals()
+        private static void StageGlobals()
         {
             #region Write everything to globals.bin
             BinaryWriter writer = SetStageFile(GlobalsFile, 0, true);
-            writer.Write(NextClassID); //Currently just saves the next ID number for new class files/metadata objects.
+            WriteGlobalsToBuffer(writer);
             #endregion
+        }
+
+        /// <summary>
+        /// Save data to the Globals file for all generic MUD-state data.
+        /// </summary>
+        private static void PreStageGlobals(BinaryWriter writer, List<int> otherStagedChanges)
+        {
+            Stream baseStream = writer.BaseStream;
+            long position = baseStream.Position;
+            otherStagedChanges.Add((int)position);
+            writer.Write(-1);
+            writer.Write(GlobalsFile);
+            writer.Write(0);
+            WriteGlobalsToBuffer(writer);
+            long newPosition = baseStream.Position;
+            baseStream.Position = position;
+            int size = (int)(newPosition - position - sizeof(int));
+            writer.Write(size);
+            baseStream.Position = newPosition;
+        }
+
+        /// <summary>
+        /// Read data from the Globals file for all generic MUD-state data.
+        /// </summary>
+        /// <param name="globals"></param>
+        private static void ReadGlobals()
+        {
+            using (FileStream globals = File.Open(Path.Combine(DatabasePath, GlobalsFile), FileMode.OpenOrCreate))
+            {
+                //Verify that it's a full valid file
+                if (globals.Length >= 8)
+                {
+                    using (BinaryReader reader = new BinaryReader(globals, Encoding.UTF8, true))
+                    {
+                        NextClassID = reader.ReadInt32();
+                        GlobalValues.defaultStartingRoomID = reader.ReadInt32();
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -452,17 +500,7 @@ namespace EspressoMUD
             }
 
             //Load global information
-            using (FileStream globals = File.Open(Path.Combine(DatabasePath, GlobalsFile), FileMode.OpenOrCreate))
-            {
-                //Verify that it's a full valid file
-                if (globals.Length >= 4)
-                {
-                    using (BinaryReader reader = new BinaryReader(globals, Encoding.UTF8, true))
-                    {
-                        NextClassID = reader.ReadInt32();
-                    }
-                }
-            }
+            ReadGlobals();
 
             //Load index of object types
             List<ObjectType> NewObjectTypes;
@@ -532,7 +570,7 @@ namespace EspressoMUD
                             classID = NextClassID;
                             NextClassID++;
                             needSave = true;
-                            GlobalsIsDirty = true;
+                            GlobalValues.GlobalsIsDirty = true;
                         }
                     }
                     //Generate parsers for this ISaveable class
@@ -603,10 +641,10 @@ namespace EspressoMUD
                         //If there are multiple SaveIDs, any interface may load the object and all interfaces need all SaveIDs.
                         meta.SaveIDParsers = saveIDParsers.ToArray();
                     }
-                    meta.ParserByID = new SaveableParser[numParsers];
+                    meta.SaveParserByID = new SaveableParser[numParsers];
                     foreach (SaveableParser parser in classParsers)
                     {
-                        meta.ParserByID[parser.ParserID] = parser;
+                        meta.SaveParserByID[parser.ParserID] = parser;
                     }
                     meta.NumberParsers = numParsers;
                     List<ObjectType> implementedTypes = new List<ObjectType>();
@@ -614,6 +652,7 @@ namespace EspressoMUD
                     {
                         if (owningType != null && owningType.BaseClass.IsAssignableFrom(type))
                         {
+                            owningType.KnownClasses.Add(type);
                             implementedTypes.Add(owningType);
                         }
                     }
@@ -630,11 +669,14 @@ namespace EspressoMUD
             main.WriteByte(1);
             main.Flush();
             #endregion
+
+            GlobalValues.FinishLoading();
+
             //If anything new was found, write the new parsers to associated map files (and anything else) immediately,
             //before anything might start using those mappings.
-            if (GlobalsIsDirty || NewClasses.Count != 0 || NewObjectTypes.Count != 0)
+            if (GlobalValues.GlobalsIsDirty || NewClasses.Count != 0 || NewObjectTypes.Count != 0)
             {
-                if (GlobalsIsDirty) StageGlobals();
+                if (GlobalValues.GlobalsIsDirty) StageGlobals();
                 foreach (Type type in NewClasses)
                 {
                     #region Write everything to type.Name's .map file
@@ -642,7 +684,7 @@ namespace EspressoMUD
                     Metadata data = Metadata.LoadedClasses[type];
                     writer.Write(data.ClassID);
                     writer.Write(data.NumberParsers);
-                    foreach (SaveableParser parser in data.ParserByID)
+                    foreach (SaveableParser parser in data.SaveParserByID)
                     {
                         if (parser != null) //&& !(parser is SaveIDParser))
                         {
@@ -672,6 +714,7 @@ namespace EspressoMUD
             DatabaseThread = new System.Threading.Thread(Run);
             DatabaseThread.Start();
         }
+
         /// <summary>
         /// Main database loop
         /// </summary>
@@ -843,7 +886,7 @@ namespace EspressoMUD
         /// Saves all metadata to the prestaged file.
         /// </summary>
         /// <returns>Dictionary of start of SaveValues lists</returns>
-        private static Dictionary<Metadata, ISaveable> SaveToPrestaged()
+        private static Dictionary<Metadata, ISaveable> SaveToPrestaged(List<int> otherStagedChanges)
         {
             //Metadatas and the first file being saved for each one
             Dictionary<Metadata, ISaveable> prestagedLists = new Dictionary<Metadata, ISaveable>();
@@ -861,6 +904,11 @@ namespace EspressoMUD
             using (ThreadManager.PauseMUD(true))
             {
                 SaveToPrestagedPass(prestagedLists, prestagedStream, writer, parserStream, parserWriter, objectStream, objectWriter);
+                if (GlobalValues.GlobalsIsDirty)
+                {
+                    PreStageGlobals(writer, otherStagedChanges);
+                    GlobalValues.GlobalsIsDirty = false;
+                }
                 SetDatabaseState(DatabaseState.StagingChanges); //Data is all prestaged. Now it's safe to assume it's okay and start pushing to staged changes.
             }
             writer.Dispose();
@@ -880,6 +928,7 @@ namespace EspressoMUD
         /// <param name="objectWriter"></param>
         private static void SaveToPrestagedPass(Dictionary<Metadata, ISaveable> prestagedLists, FileStream prestagedStream, BinaryWriter writer, MemoryStream parserStream, BinaryWriter parserWriter, MemoryStream objectStream, BinaryWriter objectWriter)
         {
+            //TODO: Somewhere in here I should be saving globals if they are dirty.
             //Search for objects to save, one type at a time.
             foreach (Metadata data in Metadata.ByClassID) if (data != null)
                 {
@@ -936,7 +985,7 @@ namespace EspressoMUD
                                 {
                                     SaveParserToBuffer(parserStream, parserWriter, objectStream, objectWriter, thisObject, parser);
                                 }
-                            foreach (SaveableParser parser in data.ParserByID)
+                            foreach (SaveableParser parser in data.SaveParserByID)
                             {
                                 if (parser != null && !(parser is SaveIDParser))
                                 {
@@ -962,7 +1011,8 @@ namespace EspressoMUD
         {
             //First save everything to the prestaged file. When that is done, we will have lists of objects that have data in the
             //prestaged file that need to be mapped and moved to the var files.
-            Dictionary<Metadata, ISaveable> prestagedLists = SaveToPrestaged();
+            List<int> otherChanges = new List<int>();
+            Dictionary<Metadata, ISaveable> prestagedLists = SaveToPrestaged(otherChanges);
 
             FileStream prestagedStream = GetPrestaged();
             BinaryReader prestagedReader = new BinaryReader(prestagedStream, Encoding.UTF8, true);
@@ -1176,6 +1226,18 @@ namespace EspressoMUD
                 writer.Write(endOfFile);
                 #endregion
             }
+
+            foreach (int otherOffset in otherChanges)
+            {
+                prestagedStream.Position = otherOffset;
+                int size = prestagedReader.ReadInt32();
+                string fileToStage = prestagedReader.ReadString();
+                int fileOffset = prestagedReader.ReadInt32();
+                SetStageFile(fileToStage, fileOffset, false);
+                int remainingSize = size - ((int)prestagedStream.Position - otherOffset);
+                writer.Write(prestagedReader.ReadBytes(remainingSize));
+            }
+
             //All the data has been saved to staged.bin now. Stop reading from prestaged.bin, clean up resources, and continue to next step of saving data.
             prestagedReader.Dispose();
             //EndStagedWrite(true);
@@ -1219,7 +1281,7 @@ namespace EspressoMUD
             BinaryWriter parserWriter = new BinaryWriter(parserStream);
             MemoryStream objectStream = writer.BaseStream as MemoryStream;
 
-            foreach (SaveableParser parser in typeData.ParserByID)
+            foreach (SaveableParser parser in typeData.SaveParserByID)
             {
                 if (parser != null && !(parser is SaveIDParser))
                 {
@@ -1319,7 +1381,7 @@ namespace EspressoMUD
             int parserID = LoadIntFromStream(objectStream);
             int length = LoadIntFromStream(objectStream);
 
-            SaveableParser parser = meta.ParserByID[parserID];
+            SaveableParser parser = meta.SaveParserByID[parserID];
             if (parser != null)
             { //'Copy' the data for this specific parser from the object stream to the parser stream
                 parserStream.Buffer = new ArraySegment<byte>(objectStream.GetBuffer(), (int)objectStream.Position, length);

@@ -17,7 +17,7 @@ namespace EspressoMUD
     // 3x3x3 cube or other sizes (most things in center?, exits in directions)
     // positional map
     // ?
-    public interface IRoomContainer : ISaveable
+    public interface IRoomContainer
     {
         Room RoomObject { get; }
     }

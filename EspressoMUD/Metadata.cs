@@ -17,18 +17,18 @@ namespace EspressoMUD
         /// 'not being saved yet' and any value as 'in the list of things to save'.
         /// </summary>
         public static ISaveable EndOfList = new DummySaveable();
-
-
-
+        
         public Metadata()
         {
             NextToSave = EndOfList;
         }
 
-        //public Type Type;
+        #region ISaveable data
         /// <summary>
         /// List of SaveIDAttributes for this object. Only for objects that belong to multiple ObjectTypes.
         /// </summary>
+        // TODO: This should probably be deleted since things can't implement multiple ObjectTypes directly, instead
+        // linking objects with container interfaces to make a single mud-object with multiple types.
         public SaveIDParser[] SaveIDParsers;
         /// <summary>
         /// List of parsers to use when saving this object. Iterate over entire list to generate data.
@@ -37,7 +37,7 @@ namespace EspressoMUD
         /// <summary>
         /// List of parsers to use when loading this object. Convert from Parser ID to Parser
         /// </summary>
-        public SaveableParser[] ParserByID;
+        public SaveableParser[] SaveParserByID;
         /// <summary>
         /// Total number of parsers made for this class; Deleted parsers will still count for this.
         /// </summary>
@@ -52,12 +52,21 @@ namespace EspressoMUD
         private ISaveable NextToSave;
         /// <summary>
         /// List of ObjectType interfaces that are implemented by this class.
+        /// TODO: This will always be only 1 type now? Need to clean up this and some related things.
         /// </summary>
         public ObjectType[] ImplementedTypes;
         /// <summary>
         /// Listed as public, but only intended to be used by the database. FileStream associated with the file for this 
         /// </summary>
         public FileStream DataFile;
+        #endregion
+
+        /// <summary>
+        /// List of parsers to use when manually modifying this object. Should usually call the GetModifyParsers
+        /// function instead of calling this directly.
+        /// </summary>
+        private ModifiableParser[] ModifyParsers;
+
         /// <summary>
         /// Type object for the class that this Metadata represents.
         /// </summary>
@@ -69,8 +78,9 @@ namespace EspressoMUD
             Type[] classes = Assembly.GetExecutingAssembly().GetTypes();
             foreach (Type type in classes) if (!type.IsAbstract)
             {
-                //Right now, we only need Metadata for saveable objects. If that changes this check can be updated.
-                if (typeof(ISaveable).IsAssignableFrom(type))
+                //Update this check whenever more classes need metadata.
+                if (typeof(ISaveable).IsAssignableFrom(type) ||
+                        typeof(IModifiable).IsAssignableFrom(type))
                 {
                         LoadedClasses[type] = new Metadata();
                         LoadedClasses[type].ClassType = type;
@@ -105,6 +115,28 @@ namespace EspressoMUD
                     NextToSave = next;
                 }
             }
+        }
+
+        public ModifiableParser[] GetModifyParsers()
+        {
+            if (ModifyParsers == null)
+            {
+                List<ModifiableParser> parsers = new List<ModifiableParser>();
+
+                FieldInfo[] fields = ClassType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static);
+                foreach (FieldInfo field in fields)
+                {
+                    ModifiableFieldAttribute attribute = (ModifiableFieldAttribute)field.GetCustomAttribute(typeof(ModifiableFieldAttribute));
+                    if (attribute != null)
+                    {
+                        ModifiableParser parser = attribute.Parser(field);
+                        if (parser == null) throw new Exception("Error in parser for " + ClassType.Name + "." + field.Name);
+                        parsers.Add(parser);
+                    }
+                }
+                ModifyParsers = parsers.ToArray();
+            }
+            return ModifyParsers;
         }
 
     }

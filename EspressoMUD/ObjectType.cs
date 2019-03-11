@@ -79,7 +79,14 @@ namespace EspressoMUD
             return newTypes;
         }
 
+        /// <summary>
+        /// Base class of this object type
+        /// </summary>
         public Type BaseClass;
+        /// <summary>
+        /// Classes that extend this ObjectType
+        /// </summary>
+        public List<Type> KnownClasses = new List<Type>();
         /// <summary>
         /// List of known free ID numbers. Ideally this should be sorted in descending order.
         /// </summary>
@@ -121,6 +128,21 @@ namespace EspressoMUD
         //        file.Read(buffer, 0, length);
         //    }
         //}
+
+        private ShortcutDictionary<Type> knownTypeLookup;
+        public ShortcutDictionary<Type> KnownTypeLookup()
+        {
+            if (knownTypeLookup == null)
+            {
+                ShortcutDictionary<Type> newLookup = new ShortcutDictionary<Type>(true);
+                foreach (Type type in KnownClasses)
+                {
+                    newLookup.Add(type.Name, type);
+                }
+                knownTypeLookup = newLookup;
+            }
+            return knownTypeLookup;
+        }
 
         public ObjectType(Type baseClass, int Id)
         {
@@ -401,6 +423,7 @@ namespace EspressoMUD
                 return base.Add(existingObject, assumeNew);
             }
 
+            bool first = usernameMap.Count == 0;
             bool success = usernameMap.TryAdd(account.Name.ToUpper(), account);
             if (!success) return false;
             success = base.Add(existingObject, assumeNew);
@@ -408,6 +431,14 @@ namespace EspressoMUD
             {
                 Account removed;
                 usernameMap.TryRemove(account.Name.ToUpper(), out removed);
+            }
+            else
+            {
+                //Make the first account made on the server an admin.
+                if (first)
+                {
+                    account.IsAdmin = true;
+                }
             }
 
             return success;

@@ -1,77 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace EspressoMUD
 {
-    public interface ISaveable
-    {
-        /// <summary>
-        /// Save ID of the object for a given object type. If -1, object is loading or has never been saved yet.
-        /// </summary>
-        /// <param name="databaseGroup">Object type to load an associated ID for. If null, a default should be used.</param>
-        /// <returns></returns>
-        int GetSaveID(ObjectType databaseGroup);
-        /// <summary>
-        /// Sets the save ID of this object for the given object type.
-        /// </summary>
-        /// <param name="databaseGroup">Object type to set an associated ID for. Shouldn't be null.</param>
-        /// <param name="id"></param>
-        void SetSaveID(ObjectType databaseGroup, int id);
-        SaveValues SaveValues { get; set; }
-        /* Template to copy-paste-modify in simple ISaveable classes.
-        public SaveValues SaveValues { get; set; }
-        [SaveID(Key="ID")]
-        protected int <ObjectType>ID = -1;
-        public int GetSaveID(ObjectType databaseGroup) { return <ObjectType>ID; }
-        public void SetSaveID(ObjectType databaseGroup, int id) { <ObjectType>ID = id; }
-         */
-        /* Template to copy-paste-modify in multiple-object-type ISaveable classes.
-        public SaveValues SaveValues { get; set; }
-        [SaveID(Key="<ObjectType1>ID")]
-        protected int <ObjectType1>ID = -1;
-        [SaveID(Key="<ObjectType2>ID")]
-        protected int <ObjectType2>ID = -1; //Repeat for as many object types as needed
-        public int GetSaveID(ObjectType databaseGroup)
-        {
-            if (databaseGroup == <ObjectType1>)
-                return <ObjectType1>ID;
-            return <ObjectType2>ID; //Last object type should not be checked.
-        }
-        public void SetSaveID(ObjectType databaseGroup, int id)
-        {
-            if (databaseGroup == <ObjectType1>)
-                <ObjectType1>ID = id;
-            else if (databaseGroup == <ObjectType2>)
-                <ObjectType2>ID = id;
-        }
-         */
-    }
-
-    public class DummySaveable : ISaveable
-    {
-        public ISaveable NextObjectToSave
-        {
-            get { return this; }
-            set { throw new NotImplementedException(); }
-        }
-        public SaveValues SaveValues
-        {
-            get { throw new NotImplementedException(); }
-            set { throw new NotImplementedException(); }
-        }
-        public int GetSaveID(ObjectType databaseGroup) { throw new NotImplementedException(); }
-        public void SetSaveID(ObjectType databaseGroup, int id) { throw new NotImplementedException(); }
-    }
+    /// <summary>
+    /// Base class for attribute to mark fields as saved to the database.
+    /// </summary>
     public abstract class SaveableFieldAttribute : Attribute
     {
-        public SaveableFieldAttribute(string Key)
+        protected SaveableFieldAttribute(string Key)
         {
             this.Key = Key;
         }
@@ -81,54 +20,8 @@ namespace EspressoMUD
     }
 
     /// <summary>
-    /// Save status and file information for this object. Nothing here corresponds to the interface,
-    /// everything is for the specific class / Metadata group.
+    /// Base class for parsers that convert between binary data and object memory.
     /// </summary>
-    public class SaveValues
-    {
-        private class SaveableEndOfList : ISaveable
-        {
-            public SaveValues SaveValues { get { throw new NotImplementedException(); } set { throw new NotImplementedException(); } }
-            public int GetSaveID(ObjectType databaseGroup) { throw new NotImplementedException(); }
-            public void SetSaveID(ObjectType databaseGroup, int id) { throw new NotImplementedException(); }
-        }
-        /// <summary>
-        /// Sentinal placeholder when this is the last object to stage.
-        /// </summary>
-        public static ISaveable EndOfList = new SaveableEndOfList();
-
-
-        /// <summary>
-        /// Threads can wait on this event to know when the object has finished loading. If it is null, the object is not loading.
-        /// </summary>
-        public ManualResetEvent LoadingIndicator;
-        /// <summary>
-        /// Next object queued to save (to the prestaged file).
-        /// </summary>
-        public ISaveable NextObjectToSave;
-        /// <summary>
-        /// Next object to save (from prestaged to staged).
-        /// </summary>
-        public ISaveable NextStagedValues;
-        /// <summary>
-        /// Location in .var file where this object is saved to. Ignored if Capacity is 0 or -1.
-        /// </summary>
-        public int Offset;
-        /// <summary>
-        /// Amount of space reserved in .var file. If -1, this object has never been saved.
-        /// </summary>
-        public int Capacity;
-        /// <summary>
-        /// Location in prestaged.bin that contains the data for this object. Starts at old .var fileoffset.
-        /// </summary>
-        public int StagedOffset;
-        /// <summary>
-        /// If true, this object is being deleted.
-        /// </summary>
-        public bool Deleted;
-    }
-
-
     public abstract class SaveableParser
     {
         /// <summary>
@@ -152,9 +45,10 @@ namespace EspressoMUD
         //public int ClassID; //This currently isn't used, but is easy to add if wanted by uncommented code in DatabaseManager.css
         public ushort ParserID;
         //public T Default; //Strongly recommended to implement, but not necessary.
-        
+
         protected static Action<ISaveable, T> GenerateSetter<T>(FieldInfo field)
         {
+            if (typeof(T) != field.FieldType) return null;
             Type baseType = field.DeclaringType;
 
             ParameterExpression paramOne = Expression.Parameter(typeof(ISaveable), "argOne");
@@ -166,6 +60,7 @@ namespace EspressoMUD
         }
         protected static Func<ISaveable, T> GenerateGetter<T>(FieldInfo field)
         {
+            if (typeof(T) != field.FieldType) return null;
             Type baseType = field.DeclaringType;
 
             ParameterExpression paramOne = Expression.Parameter(typeof(ISaveable), "argOne");
@@ -201,7 +96,8 @@ namespace EspressoMUD
     }
 
     /// <summary>
-    /// Generic attribute that attempts to save any normal field. Supports Default for some types
+    /// Generic attribute that attempts to save any normal field. Supports Default for some types.
+    /// Most of the time, this specifically should be used to mark fields as saved.
     /// </summary>
     public class SaveFieldAttribute : SaveableFieldAttribute
     {
@@ -218,6 +114,12 @@ namespace EspressoMUD
                     return new SaveIntDefaultParser(field, (int)Default);
                 return new SaveIntParser(field);
             }
+            if (field.FieldType == typeof(bool))
+            {
+                if (Default != null)
+                    return new SaveBoolDefaultParser(field, (bool)Default);
+                return new SaveBoolParser(field);
+            }
             if (field.FieldType == typeof(int[]))
                 return new SaveIntArrayParser(field);
             if (field.FieldType == typeof(string))
@@ -225,13 +127,16 @@ namespace EspressoMUD
 
             if (field.FieldType == typeof(ListMOBs))
                 return new SaveGenericListParser<ListMOBs, MOB>(field);
-                //return new SaveListMOBsParser(field);
+            //return new SaveListMOBsParser(field);
             if (field.FieldType == typeof(ListItems))
-                return new SaveListItemsParser(field);
+                return new SaveGenericListParser<ListItems, Item>(field);
+            //return new SaveListItemsParser(field);
             if (field.FieldType == typeof(ListRooms))
-                return new SaveListRoomsParser(field);
+                return new SaveGenericListParser<ListRooms, Room>(field);
+            //return new SaveListRoomsParser(field);
             if (field.FieldType == typeof(ListRoomLinks))
-                return new SaveListRoomLinksParser(field);
+                return new SaveGenericListParser<ListRoomLinks, RoomLink>(field);
+            //return new SaveListRoomLinksParser(field);
 
             if (field.FieldType == typeof(MOB))
                 return new SaveMOBParser(field);
@@ -261,7 +166,7 @@ namespace EspressoMUD
     }
 
     /// <summary>
-    /// Special attribute for SaveIDs. Handled specially be database.
+    /// Special attribute for SaveIDs. Handled specially by database. This should always be used for SaveIDs.
     /// </summary>
     public class SaveIDAttribute : SaveableFieldAttribute
     {
@@ -338,7 +243,7 @@ namespace EspressoMUD
         public override void Get(ISaveable source, BinaryWriter writer)
         {
             int currentValue = Getter.Invoke(source);
-            if(currentValue != defaultValue) writer.Write(currentValue);
+            if (currentValue != defaultValue) writer.Write(currentValue);
         }
         public override void Set(ISaveable target, BinaryReader reader)
         {
@@ -346,6 +251,46 @@ namespace EspressoMUD
         }
         private Func<ISaveable, int> Getter;
         private Action<ISaveable, int> Setter;
+    }
+
+    public class SaveBoolParser : SaveableParser
+    {
+        public SaveBoolParser(FieldInfo field)
+        {
+            Getter = GenerateGetter<bool>(field);
+            Setter = GenerateSetter<bool>(field);
+        }
+        public override void Get(ISaveable source, BinaryWriter writer)
+        {
+            writer.Write(Getter.Invoke(source));
+        }
+        public override void Set(ISaveable target, BinaryReader reader)
+        {
+            Setter.Invoke(target, reader.ReadBoolean());
+        }
+        private Func<ISaveable, bool> Getter;
+        private Action<ISaveable, bool> Setter;
+    }
+    public class SaveBoolDefaultParser : SaveableParser
+    {
+        bool defaultValue;
+        public SaveBoolDefaultParser(FieldInfo field, bool defaultValue)
+        {
+            this.defaultValue = defaultValue;
+            Getter = GenerateGetter<bool>(field);
+            Setter = GenerateSetter<bool>(field);
+        }
+        public override void Get(ISaveable source, BinaryWriter writer)
+        {
+            bool currentValue = Getter.Invoke(source);
+            if (currentValue != defaultValue) writer.Write(currentValue);
+        }
+        public override void Set(ISaveable target, BinaryReader reader)
+        {
+            Setter.Invoke(target, reader.ReadBoolean());
+        }
+        private Func<ISaveable, bool> Getter;
+        private Action<ISaveable, bool> Setter;
     }
 
     public class SaveIntArrayAttribute : SaveableFieldAttribute
@@ -381,7 +326,7 @@ namespace EspressoMUD
         private Func<ISaveable, int[]> Getter;
         private Action<ISaveable, int[]> Setter;
     }
-    
+
     public class SaveStringAttribute : SaveableFieldAttribute
     {
         public SaveStringAttribute(string Key) : base(Key)
@@ -408,7 +353,7 @@ namespace EspressoMUD
         public override void Get(ISaveable source, BinaryWriter writer)
         {
             string str = Getter.Invoke(source);
-            if(str != null && str != defaultValue) writer.Write(str);
+            if (str != null && str != defaultValue) writer.Write(str);
         }
         public override void Set(ISaveable target, BinaryReader reader)
         {
@@ -468,106 +413,13 @@ namespace EspressoMUD
             AccountObjects.Get().FinishLoading(target as Account);
         }
     }
-    
-    public class SaveListMOBsParser : SaveableParser
-    {
-        public SaveListMOBsParser(FieldInfo field)
-        {
-            Getter = GenerateGetter<ListMOBs>(field);
-            Setter = GenerateSetter<ListMOBs>(field);
-        }
-        public override void Get(ISaveable source, BinaryWriter writer)
-        {
-            ListMOBs list = Getter.Invoke(source);
-            int[] saveIDs = list.GetIDs();
-            foreach (int i in saveIDs) writer.Write(i);
-        }
-        public override void Set(ISaveable target, BinaryReader reader)
-        {
-            int[] array = new int[reader.BaseStream.Length / sizeof(int)];
-            for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
-            ListMOBs list = new ListMOBs();
-            list.SetIDs(array);
-            Setter.Invoke(target, list);
-        }
-        private Func<ISaveable, ListMOBs> Getter;
-        private Action<ISaveable, ListMOBs> Setter;
-    }
-    public class SaveListItemsParser : SaveableParser
-    {
-        public SaveListItemsParser(FieldInfo field)
-        {
-            Getter = GenerateGetter<ListItems>(field);
-            Setter = GenerateSetter<ListItems>(field);
-        }
-        public override void Get(ISaveable source, BinaryWriter writer)
-        {
-            ListItems list = Getter.Invoke(source);
-            int[] saveIDs = list.GetIDs();
-            foreach (int i in saveIDs) writer.Write(i);
-        }
-        public override void Set(ISaveable target, BinaryReader reader)
-        {
-            int[] array = new int[reader.BaseStream.Length / sizeof(int)];
-            for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
-            ListItems list = new ListItems();
-            list.SetIDs(array);
-            Setter.Invoke(target, list);
-        }
-        private Func<ISaveable, ListItems> Getter;
-        private Action<ISaveable, ListItems> Setter;
-    }
-    public class SaveListRoomsParser : SaveableParser
-    {
-        public SaveListRoomsParser(FieldInfo field)
-        {
-            Getter = GenerateGetter<ListRooms>(field);
-            Setter = GenerateSetter<ListRooms>(field);
-        }
-        public override void Get(ISaveable source, BinaryWriter writer)
-        {
-            ListRooms list = Getter.Invoke(source);
-            int[] saveIDs = list.GetIDs();
-            foreach (int i in saveIDs) writer.Write(i);
-        }
-        public override void Set(ISaveable target, BinaryReader reader)
-        {
-            int[] array = new int[reader.BaseStream.Length / sizeof(int)];
-            for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
-            ListRooms list = new ListRooms();
-            list.SetIDs(array);
-            Setter.Invoke(target, list);
-        }
-        private Func<ISaveable, ListRooms> Getter;
-        private Action<ISaveable, ListRooms> Setter;
-    }
-    public class SaveListRoomLinksParser : SaveableParser
-    {
-        public SaveListRoomLinksParser(FieldInfo field)
-        {
-            Getter = GenerateGetter<ListRoomLinks>(field);
-            Setter = GenerateSetter<ListRoomLinks>(field);
-        }
-        public override void Get(ISaveable source, BinaryWriter writer)
-        {
-            ListRoomLinks list = Getter.Invoke(source);
-            int[] saveIDs = list.GetIDs();
-            foreach (int i in saveIDs) writer.Write(i);
-        }
-        public override void Set(ISaveable target, BinaryReader reader)
-        {
-            int[] array = new int[reader.BaseStream.Length / sizeof(int)];
-            for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
-            ListRoomLinks list = new ListRoomLinks();
-            list.SetIDs(array);
-            Setter.Invoke(target, list);
-        }
-        private Func<ISaveable, ListRoomLinks> Getter;
-        private Action<ISaveable, ListRoomLinks> Setter;
-    }
 
-    //TODO: Does this work instead? Would be cleaner.
-    public class SaveGenericListParser<T,U> : SaveableParser where T : ListSaveables<U>, new() where U : ISaveable
+    /// <summary>
+    /// Save a list of objects of a specific type.
+    /// </summary>
+    /// <typeparam name="T">Type of list to save</typeparam>
+    /// <typeparam name="U">Type of object in the list to save references to</typeparam>
+    public class SaveGenericListParser<T, U> : SaveableParser where T : ListSaveables<U>, new() where U : ISaveable
     {
         public SaveGenericListParser(FieldInfo field)
         {
@@ -592,7 +444,10 @@ namespace EspressoMUD
         private Action<ISaveable, T> Setter;
     }
 
-    //TODO: Does this work? Would be cleaner.
+    /// <summary>
+    /// Save a single reference to another object. The referenced object will be loaded if it isn't already.
+    /// </summary>
+    /// <typeparam name="T">Type of object being referenced.</typeparam>
     public abstract class SaveGenericObjectTypeObject<T> : SaveableParser where T : class, ISaveable
     {
         protected abstract Type ObjectsType { get; }
