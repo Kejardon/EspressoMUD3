@@ -8,12 +8,16 @@ namespace EspressoMUD
 {
     abstract public class MOBCommand : Command
     {
-        public override bool canUse(Client user, MOB mob)
+        public MOBCommand(string mainCommand, string[] alternateCommands) : base(mainCommand, alternateCommands)
+        {
+        }
+
+        public override bool CanUse(Client user, MOB mob)
         {
             return mob != null;
         }
 
-        public override void execute(Client user, QueuedCommand command)
+        public override void Execute(Client user, QueuedCommand command)
         {
             throw new NotImplementedException();
         }

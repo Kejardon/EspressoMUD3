@@ -17,8 +17,8 @@ namespace EspressoMUD
         private class SaveableEndOfList : ISaveable
         {
             public SaveValues SaveValues { get { throw new NotImplementedException(); } set { throw new NotImplementedException(); } }
-            public int GetSaveID(ObjectType databaseGroup) { throw new NotImplementedException(); }
-            public void SetSaveID(ObjectType databaseGroup, int id) { throw new NotImplementedException(); }
+            public int GetSaveID() { throw new NotImplementedException(); }
+            public void SetSaveID(int id) { throw new NotImplementedException(); }
         }
         /// <summary>
         /// Sentinal placeholder when this is the last object to stage.

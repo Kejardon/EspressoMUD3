@@ -26,7 +26,7 @@ namespace EspressoMUD
         public ListSaveables()
         {
         }
-        protected T Get(int i)
+        public T Get(int i)
         {
             Tuple<int, T> datum = data[i];
             T saveable = datum.Item2;
@@ -43,7 +43,7 @@ namespace EspressoMUD
         /// <param name="next"></param>
         public void Add(T next)
         {
-            int saveId = next.GetSetSaveID(Type);
+            int saveId = next.GetSetSaveID();
             lock(this)
             {
                 data.Add(new Tuple<int, T>(saveId, next));
@@ -51,7 +51,7 @@ namespace EspressoMUD
         }
         public bool Remove(T old)
         {
-            int saveId = old.GetSaveID(Type);
+            int saveId = old.GetSaveID();
             if (saveId == -1) return false;
             lock (this)
             {
@@ -121,6 +121,19 @@ namespace EspressoMUD
             {
                 data.Add(new Tuple<int, T>(id, default(T)));
             }
+        }
+        public bool Contains(int i)
+        {
+            if (i < 0) return false; //Unsaved objects are not supported, objects need a save ID to be in this list.
+            foreach (Tuple<int, T> datum in data)
+            {
+                if (datum.Item1 == i) return true;
+            }
+            return false;
+        }
+        public bool Contains(ISaveable obj)
+        {
+            return Contains(obj.GetSaveID());
         }
     }
     public class ListMOBs : ListSaveables<MOB>
@@ -216,21 +229,21 @@ namespace EspressoMUD
         }
         public override bool Equals(object obj)
         {
-            int thisId = Id == -1 ? Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) : Id;
+            int thisId = Id == -1 ? Value.GetSaveID() : Id;
             if (obj is DelayedMOB)
             {
                 DelayedMOB otherDelayed = (DelayedMOB)obj;
-                int otherId = otherDelayed.Id == -1 ? otherDelayed.Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) : otherDelayed.Id;
+                int otherId = otherDelayed.Id == -1 ? otherDelayed.Value.GetSaveID() : otherDelayed.Id;
                 return otherId == thisId;
             }
             MOB mob = obj as MOB;
             if (mob == null) return false;
-            return mob.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]) == thisId;
+            return mob.GetSaveID() == thisId;
         }
         public override int GetHashCode()
         {
             if (Id != -1) return Id;
-            return Value.GetSaveID(ObjectType.TypeByClass[typeof(MOB)]);
+            return Value.GetSaveID();
         }
     }
 

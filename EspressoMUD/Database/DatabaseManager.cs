@@ -403,7 +403,7 @@ namespace EspressoMUD
                 int defaultRoom = -1;
 
                 Room room = GlobalValues.DefaultStartingRoom;
-                if (room != null) defaultRoom = room.GetSetSaveID(ObjectType.TypeByClass[typeof(Room)]);
+                if (room != null) defaultRoom = room.GetSetSaveID();
             writer.Write(defaultRoom);
         }
 
@@ -485,15 +485,23 @@ namespace EspressoMUD
                 if (crashed != 0)
                 {
                     DatabaseState state = (DatabaseState)main.ReadByte();
-                    //TODO Important: Handle other states.
-                    //For prestaged to staged, need to generate dummy objects with correct savevalues/pointers to data, save, then clear out dummy objects.
-
-                    if (state == DatabaseState.WritingToDatabase)
+                    switch (state)
                     {
-                        //The staged file was finished, but it did not finish writing chunks to files.
-                        //Try again from start of copying staged changes to files.
-                        GetCurrentStaged(false, true);
-                        CommitCurrentStaged();
+                        case DatabaseState.UpToDate: //Normal crash state. Unknown if data was lost.
+                            break;
+                        case DatabaseState.SavingPrestaged: //Normal crash state. Unknown if data was lost.
+                            break;
+                        case DatabaseState.StagingChanges: //Prestaged file has data that can be recovered.
+                            //TODO Important: Handle this state.
+                            //For prestaged to staged, need to generate dummy objects with correct savevalues/pointers to data, save, then clear out dummy objects.
+                            throw new NotImplementedException("Code for parsing prestaged file after crash has not been written yet.");
+                            break;
+                        case DatabaseState.WritingToDatabase: //Staged file has data that is ready to be saved to the database.
+                            //The staged file was finished, but it did not finish writing chunks to files.
+                            //Try again from start of copying staged changes to files.
+                            GetCurrentStaged(false, true);
+                            CommitCurrentStaged();
+                            break;
                     }
                 }
                 #endregion
@@ -575,7 +583,7 @@ namespace EspressoMUD
                     }
                     //Generate parsers for this ISaveable class
                     List<SaveableParser> classParsers = new List<SaveableParser>();
-                    List<SaveIDParser> saveIDParsers = new List<SaveIDParser>(); //Keep parsers that refer to a SaveID separate
+                    //List<SaveIDParser> saveIDParsers = new List<SaveIDParser>(); //Keep parsers that refer to a SaveID separate
                     FieldInfo[] fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly | BindingFlags.Instance);
                     foreach (FieldInfo field in fields)
                     {
@@ -603,8 +611,8 @@ namespace EspressoMUD
                             parser.ParserID = parserID;
                             parser.Key = parserKey;
                             parser.owningType = field.DeclaringType;
-                            SaveIDParser saveIDParser = parser as SaveIDParser;
-                            if (saveIDParser != null) saveIDParsers.Add(saveIDParser);
+                            //SaveIDParser saveIDParser = parser as SaveIDParser;
+                            //if (saveIDParser != null) saveIDParsers.Add(saveIDParser);
                             classParsers.Add(parser);
                         }
                     }
@@ -636,27 +644,25 @@ namespace EspressoMUD
                     MetadataByID[classID] = meta;
                     meta.ClassID = classID;
                     //If there is only one SaveID for a class, then its interface index on loading is enough and we don't need to save SaveIDs
-                    if (saveIDParsers.Count > 1)
-                    {
-                        //If there are multiple SaveIDs, any interface may load the object and all interfaces need all SaveIDs.
-                        meta.SaveIDParsers = saveIDParsers.ToArray();
-                    }
+                    //if (saveIDParsers.Count > 1)
+                    //{
+                    //    //If there are multiple SaveIDs, any interface may load the object and all interfaces need all SaveIDs.
+                    //    meta.SaveIDParsers = saveIDParsers.ToArray();
+                    //}
                     meta.SaveParserByID = new SaveableParser[numParsers];
                     foreach (SaveableParser parser in classParsers)
                     {
                         meta.SaveParserByID[parser.ParserID] = parser;
                     }
                     meta.NumberParsers = numParsers;
-                    List<ObjectType> implementedTypes = new List<ObjectType>();
                     foreach (ObjectType owningType in ObjectType.TypeByID)
                     {
                         if (owningType != null && owningType.BaseClass.IsAssignableFrom(type))
                         {
                             owningType.KnownClasses.Add(type);
-                            implementedTypes.Add(owningType);
+                            meta.ObjectType = owningType;
                         }
                     }
-                    meta.ImplementedTypes = implementedTypes.ToArray();
                     if (needSave)
                     {
                         NewClasses.Add(type);
@@ -820,10 +826,9 @@ namespace EspressoMUD
             }
             ISaveable newObject = Activator.CreateInstance(data.ClassType, false) as ISaveable;
 
-            newObject.SetSaveID(type, ID);
+            newObject.SetSaveID(ID);
             newObject.SaveValues = saveValues;
-            bool setMainID = ID == newObject.GetSaveID(null); //See if this was the main ID.
-            if (setMainID && !TrySetLoadingObject(type, newObject, ID)) return;
+            if (!TrySetLoadingObject(type, newObject, ID)) return;
 
             #region Read from data type's .var file (just copy data from file to RAM, parsing in LoadOneParser)
             byte[] fileData = new byte[dataSize];
@@ -839,19 +844,7 @@ namespace EspressoMUD
             {
                 ArraySegmentStream array = new ArraySegmentStream();
                 BinaryReader parserReader = new BinaryReader(array);
-                while (!setMainID && stream.Position < stream.Length)
-                { //We haven't loaded the main ID for this yet. Keep loading properties until we find a main ID.
-                    SaveableParser parser = LoadOneParser(array, parserReader, stream, reader, newObject, data);
-                    if (parser == null) continue;
-                    if (!(parser is SaveIDParser)) break;
-                    setMainID = ID != newObject.GetSaveID(null);
-                    //If we've loaded the main ID, try to set it. If another thread has already claimed responsibility for this ID, abort loading.
-                    if (setMainID && !TrySetLoadingObject(type, newObject, ID)) return;
-                }
-                //NOTE: Bad things likely to happen if main ID isn't loaded. Can happen if code is modified to implement more
-                //interfaces and the default is one of the new interfaces.
-                if (!setMainID) throw new Exception("Error on loading object, main ID not found");
-                //We've loaded the main ID, now finish loading everything else that might be here.
+                //finish loading everything else that might be here.
                 while (stream.Position < stream.Length)
                     LoadOneParser(array, parserReader, stream, reader, newObject, data);
             }
@@ -936,16 +929,13 @@ namespace EspressoMUD
                     ISaveable nextObject = data.ResetNextToSave();
                     if (nextObject == Metadata.EndOfList) continue; //Skip metadata if nothing in it to save.
 
-                    ObjectType[] relevantTypes = data.ImplementedTypes;
+                    //ObjectType[] relevantTypes = data.ImplementedTypes;
+                    ObjectType relevantType = data.ObjectType;
 
                     #region Save to prestaged.bin - First metadata
                     //Save metadata info
                     writer.Write(data.ClassID);
-                    writer.Write((byte)relevantTypes.Length);
-                    foreach (ObjectType objType in relevantTypes)
-                    {
-                        writer.Write((ushort)objType.ID);
-                    }
+                    writer.Write((ushort)relevantType.ID);
                     ISaveable previousObject;
                     if (!prestagedLists.TryGetValue(data, out previousObject))
                     {
@@ -970,8 +960,7 @@ namespace EspressoMUD
                         #region Save to prestaged.bin - Individual object data
                         writer.Write(saveData.Offset); //Save where data WAS stored before
                         writer.Write(saveData.Capacity);
-                        for (int i = 0; i < relevantTypes.Length; i++)
-                            writer.Write(thisObject.GetSetSaveID(relevantTypes[i]));
+                        writer.Write(thisObject.GetSetSaveID());
 
                         if (saveData.Deleted)
                         {
@@ -981,10 +970,6 @@ namespace EspressoMUD
                         {
                             //Save data to the temporary object buffer first
                             objectStream.Position = 0;
-                            if (data.SaveIDParsers != null) foreach (SaveableParser parser in data.SaveIDParsers)
-                                {
-                                    SaveParserToBuffer(parserStream, parserWriter, objectStream, objectWriter, thisObject, parser);
-                                }
                             foreach (SaveableParser parser in data.SaveParserByID)
                             {
                                 if (parser != null && !(parser is SaveIDParser))
@@ -1121,8 +1106,7 @@ namespace EspressoMUD
                 string filename = GetDatabaseFilename(data);
                 nextObject = kvp.Value;
                 ///Size of data to help support crash recovery. This data is not needed for writing to the staged file.
-                int skip = 8; //Skip file offset and capacity
-                skip += 4 * data.ImplementedTypes.Length; //Skip interfaces
+                int skip = 12; //Skip file offset, capacity, and save ID
                 List<int> sizes = new List<int>(); //List of sizes for each object, in same order as the linked list of objects.
                 //Second pass: Assign offsets/sizes/capacities and write to staged .var
                 while (nextObject != Metadata.EndOfList)
@@ -1151,7 +1135,7 @@ namespace EspressoMUD
                             firstFreeSpace++;
                             continue;
                         }
-                        if (sortedSizes[i] <= size)
+                        if (sortedSizes[i] >= size)
                         {
                             saveOffset = sortedOffsets[i]; //It fits here. Save the data to this location.
                             if (sortedSizes[i] < 2 * size)
@@ -1182,7 +1166,8 @@ namespace EspressoMUD
                     #endregion
                 }
                 //Third+ passes: Write to each staged .fix. Goes through by interface to organize writes so each file is only written once in a large chunk.
-                foreach (ObjectType type in data.ImplementedTypes)
+                //foreach (ObjectType type in data.ImplementedTypes)
+                ObjectType type = data.ObjectType;
                 { //Go through each associated interface / .fix file for this type
                     nextObject = kvp.Value;
                     string fileName = GetDatabaseFilename(type);
@@ -1204,7 +1189,7 @@ namespace EspressoMUD
                             offset = thisValues.Offset;
                         }
                         #region Write to staged.bin file to write to .fix file later
-                        int index = thisObject.GetSetSaveID(type);
+                        int index = thisObject.GetSetSaveID();
                         SetStageFile(fileName, index * 0x10);
                         writer.Write(id);
                         writer.Write(offset);
@@ -1253,7 +1238,7 @@ namespace EspressoMUD
         /// <param name="objectWriter">Reused writer, temporary buffer for the whole object</param>
         /// <param name="thisObject">Object being saved</param>
         /// <param name="parser">Parser saving data from the object</param>
-        private static void SaveParserToBuffer(MemoryStream parserStream, BinaryWriter parserWriter, MemoryStream objectStream, BinaryWriter objectWriter, ISaveable thisObject, SaveableParser parser)
+        private static void SaveParserToBuffer(MemoryStream parserStream, BinaryWriter parserWriter, MemoryStream objectStream, BinaryWriter objectWriter, object thisObject, SaveableParser parser)
         {
             parserStream.Position = 0; //Reset the temporary parser buffer
             parser.Get(thisObject, parserWriter); //Load the data from the object to the temporary parser buffer //TODO: Try/Catch?
@@ -1271,10 +1256,10 @@ namespace EspressoMUD
         /// </summary>
         /// <param name="child">Subobject to save</param>
         /// <param name="writer">Stream to save subobject to</param>
-        public static void SaveSubobject(ISaveable child, BinaryWriter writer)
+        public static void SaveSubobject(ISubobject child, BinaryWriter writer)
         {
 
-            Metadata typeData = child.GetMetadata();
+            Metadata typeData = Metadata.LoadedClasses[child.GetType()]; //child.GetMetadata();
             writer.Write(typeData.ClassID);
 
             MemoryStream parserStream = new MemoryStream(8192); //Buffer/writer for an individual parser
@@ -1297,16 +1282,16 @@ namespace EspressoMUD
         /// data for the subobject before calling this function.
         /// </param>
         /// <returns>Loaded subobject</returns>
-        public static ISaveable LoadSubobject(BinaryReader reader)
+        public static ISubobject LoadSubobject(BinaryReader reader)
         {
             int classID = reader.ReadInt32();
             Metadata data = Metadata.ByClassID[classID];
-            ISaveable newObject = Activator.CreateInstance(data.ClassType, false) as ISaveable;
+            ISubobject newObject = Activator.CreateInstance(data.ClassType, false) as ISubobject;
 
             MemoryStream stream = reader.BaseStream as MemoryStream;
             ArraySegmentStream array = new ArraySegmentStream();
             BinaryReader parserReader = new BinaryReader(array);
-            while (stream.Position < stream.Length) //The end of the subobject is also the end of the 
+            while (stream.Position < stream.Length) //The end of the subobject is also the end of the stream
                 LoadOneParser(array, parserReader, stream, reader, newObject, data);
 
             return newObject;
@@ -1375,7 +1360,7 @@ namespace EspressoMUD
         /// <param name="thisObject">Object that is being loaded.</param>
         /// <param name="meta">Metadata for the object's type.</param>
         /// <returns>The next parser loaded from the object stream, or null if no object </returns>
-        private static SaveableParser LoadOneParser(ArraySegmentStream parserStream, BinaryReader parserReader, MemoryStream objectStream, BinaryReader objectReader, ISaveable thisObject, Metadata meta)
+        private static SaveableParser LoadOneParser(ArraySegmentStream parserStream, BinaryReader parserReader, MemoryStream objectStream, BinaryReader objectReader, object thisObject, Metadata meta)
         {
             #region Read from data type's .var file (data is already copied from file to RAM, parsing here)
             int parserID = LoadIntFromStream(objectStream);
@@ -1398,7 +1383,7 @@ namespace EspressoMUD
     public static partial class Extensions
     {
 
-        private static SaveValues GetCreateSaveValues(ISaveable s, bool newSave = false)
+        private static SaveValues GetCreateSaveValues(ISaveable s)
         {
             //TODO: Not really sure about thread safety. I can't think of any reason why this would need to be thread safe but I'm not 100% sure.
             SaveValues save = s.SaveValues;
@@ -1414,13 +1399,25 @@ namespace EspressoMUD
         /// Mark an object as necessary to save to the database.
         /// </summary>
         /// <param name="s">Object to save</param>
-        public static void Save(this ISaveable s, bool newSave = false)
+        public static void Save(this ISaveable s)
         {
-            SaveValues save = GetCreateSaveValues(s, newSave);
+            SaveValues save = GetCreateSaveValues(s);
 
             if (save.NextObjectToSave != null)
                 return;
             s.GetMetadata().AddNextToSave(s);
+        }
+        /// <summary>
+        /// Mark a subobject as necessary to save to the database.
+        /// Travels up the parent chain until it finds a ISaveable object.
+        /// </summary>
+        /// <param name="s">Object to save</param>
+        public static void Save(this ISubobject s)
+        {
+            object parent = s.Parent;
+            ISaveable saveable = parent as ISaveable;
+            if (saveable != null) { Save(saveable); } //Save the ISaveable
+            else { Save(parent as ISubobject); } //Keep looking for an ISaveable. Null exception if parent is null or invalid.
         }
 
         /// <summary>
@@ -1441,14 +1438,15 @@ namespace EspressoMUD
         /// <param name="saveable"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        public static int GetSetSaveID(this ISaveable saveable, ObjectType type)
+        public static int GetSetSaveID(this ISaveable saveable)
         {
-            int id = saveable.GetSaveID(type);
+            int id = saveable.GetSaveID();
             if(id == -1)
             {
+                ObjectType type = saveable.GetMetadata().ObjectType;
                 type.Add(saveable);
             }
-            return saveable.GetSaveID(type);
+            return saveable.GetSaveID();
         }
     }
 }

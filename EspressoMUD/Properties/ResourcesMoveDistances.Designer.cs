@@ -70,6 +70,15 @@ namespace EspressoMUD.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ROOM,ROOMS.
+        /// </summary>
+        internal static string Default {
+            get {
+                return ResourceManager.GetString("Default", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to FOOT,FEET,FT.
         /// </summary>
         internal static string Foot {
@@ -120,6 +129,15 @@ namespace EspressoMUD.Properties {
         internal static string Millimeter {
             get {
                 return ResourceManager.GetString("Millimeter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to STEP,STEPS,SECOND,SECONDS.
+        /// </summary>
+        internal static string Step {
+            get {
+                return ResourceManager.GetString("Step", resourceCulture);
             }
         }
         

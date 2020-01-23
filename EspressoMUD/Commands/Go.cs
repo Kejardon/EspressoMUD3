@@ -10,14 +10,12 @@ namespace EspressoMUD
 {
     public class Go : MOBCommand
     {
-        public Go()
+        public Go() : base ("go", new string[] { "move" })
         {
-            UniqueCommand = "go";
-            AlternateCommands = new string[] { "move" };
         }
-        public override void execute(MOB mob, QueuedCommand command)
+        public override void Execute(MOB mob, QueuedCommand command)
         {
-            /*TODO: magic parsing to get a destination from the user's input
+            /*
             Form is always (optional direction/distance) (optional preposition) (optional target)
                 direction/distance can work alone (implies 'from here')
                 if direction/distance is missing, if preposition is not specific, 'in reach' is implied
@@ -26,19 +24,20 @@ namespace EspressoMUD
             Search for prepositions, get a list of them.
                 Validate prepositions. Need to have nothing or a valid direction/distance before preposition.
                 How many can actually be possible? I think only zero or one preposition is really possible?
-                TODO: Special user input to specify a preposition instead of parser guessing.
+                TODO: Special user input to specify a preposition instead of parser guessing. Mostly goes in StringWords but
+                matching prepositions/item names needs to respect that too (might work automatically).
                     Some system similar to quotes probably. Quotes may be useful though, like book titles or something.
-                    Should at least have a hook to use this right away, even if currently there's no implementation
             If no prepositions, attempt to parse full string as direction/distance. If successful, do that
-            Search whole string for item/target matches and associated strings.
+            //Search whole string for item/target matches and associated strings.
                 In general, 'visible to MOB' items.
                 Must match to end of string?
-            Find associated strings that line up with a preposition
+                Nevermind, this string will be identified but targets will not be searched for until a TryGoEvent is run.
+            //Find associated strings that line up with a preposition
             Instead of above two major points:
                 Identify all valid strings (start after preposition, go to end of string)
                     TODO: Special user input to specify a string instead of parser guessing?
                         This is basically implied by a preposition. However it maybe makes more sense to specify the target instead of the preposition.
-                Search all 'visible to MOB' items that exactly match any of the valid strings.
+                //Search all 'visible to MOB' items that exactly match any of the valid strings.
             How to pick best match?
                 Maybe just not go if more than one match found, request more info. prompt?
             */
@@ -49,12 +48,13 @@ namespace EspressoMUD
             int prepValue;
             MovementPreposition prepEnum;
             MovementDirection direction = null;
+            TryGoEvent moveEvent = new TryGoEvent();
             int index = TextParsing.FindAPreposition(goToInput, typeof(MovementPreposition), out prepValue, start);
             if (index != -1)
             {
                 //Is this a valid preposition? Check if it starts correctly.
-                prepEnum = EnumClass.GetValues(typeof(MovementPreposition))[prepValue] as MovementPreposition;
-                if (!prepEnum.AllowDirection)
+                prepEnum = (MovementPreposition)prepValue;
+                if (!prepEnum.AllowDirection() && !prepEnum.AllowDistance())
                 {
                     if (index != start + 1)
                     {
@@ -62,74 +62,145 @@ namespace EspressoMUD
                         goto noPrepositionFound;
                     }
                 }
-                else if (prepEnum.RequireDirection && index == start + 1)
+                else if ((prepEnum.RequireDirection() || prepEnum.RequireDistance()) && index == start + 1)
                 {
                     //Invalid preposition for this location, needs to come after a direction/distance.
                     goto noPrepositionFound;
                 }
                 else
                 {
-                    direction = TextParsing.ParseAsDirection(goToInput, mob, ref start, ref index, true);
+                    direction = TextParsing.ParseAsDirection(goToInput, start, ref index, prepEnum.RequireDirection(), prepEnum.RequireDistance(), prepEnum.AllowDirection(), prepEnum.AllowDistance());
                     if (direction == null) //Not a valid preposition. Ignore it.
                     {
                         goto noPrepositionFound;
                     }
                     else //Maybe valid preposition. 
                     {
-                        //TODO: Check if preposition matches direction more closely?
+                        //Check if preposition matches direction more closely? I think the previous checks have finished that successfully at this point.
 
                         //Valid preposition. Parse the REST of the sentence as an object.
-                        start = index + 1;
-                        goto foundPreposition;
+                        start = index;
+                        goto startEvent;
                     }
                 }
             }
             else
             {
                 //Is the whole thing a direction?
-                direction = TextParsing.ParseAsDirection(goToInput, mob, ref start, ref index, true);
+                direction = TextParsing.ParseAsDirection(goToInput, start, ref index);
                 if (direction != null)
                 {
-                    //TODO: Handle going to a direction instead of to a destination.
+                    if (direction.direction != Directions.NoDirection && index == goToInput.Segments.Length)
+                    {
+                        //Mark it as ONLY a direction, no destination (goToInput has been completely parsed/consumed)
+                        goToInput = null;
+                        //goto startEvent;
+                    }
+                    else
+                    {
+                        //Can't go only a distance with NoDirection. Cancel this parsing.
+                        direction = null;
+                    }
                 }
+                //Else try to parse the whole thing as an object to go to
             }
-
+        //Text parsing has decided what words go to what (i.e. direction vs. target).
+        //Text parsing has NOT identified objects yet.
         noPrepositionFound:
+            moveEvent.targetDescription = goToInput;
             start = 1;
-            prepEnum = null;
+            prepEnum = MovementPreposition.To; // null; ?
 
-        foundPreposition:
-            //index = -1;
+        startEvent: //foundPreposition
+            moveEvent.targetDescriptionStart = start;
+            moveEvent.direction = direction;
+            moveEvent.relation = prepEnum;
+            moveEvent.SetMoveSource(mob, null);
 
-            ThreadManager.StartEvent(mob.Body.Position.forRoom);
-
-            Item target = TextParsing.FindKnownItem(goToInput, mob, start, -1); //TODO: Implement this to find visible items for a player. This should maybe also allow a prompt?
-            //TODO: Handle going to the target found / if a target is found.
-
-
+            //Raw command parsing done, target parsing has not been done.
+            //Run the event to try to find a path to the target.
+            moveEvent.FullRunEvent();
         }
     }
 
+
+    public enum MovementPreposition
+    {
+
+        /// <summary>
+        /// Go through a room link in the 'In' direction.
+        /// </summary>
+        In,
+        /// <summary>
+        /// Go through a room link in the 'Out' direction.
+        /// </summary>
+        Out,
+        /// <summary>
+        /// Stand anywhere on top of a thing.
+        /// </summary>
+        //allow with distance as a 'don't move off this' thing? probably not.
+        On,
+        /// <summary>
+        /// Go to or near an object. Defaults to trying to be in arms reach.
+        /// TODO: Defaults to 'In' for enterable things?
+        /// </summary>
+        To,
+        /// <summary>
+        /// Same as 'To' but requires a distance.
+        /// </summary>
+        From,
+        /// <summary>
+        /// Same as 'To' but requires a direction and optional distance.
+        /// </summary>
+        Of,
+        /// <summary>
+        /// Same as 'To' but defaults to be somewhere close above the object.
+        /// </summary>
+        Above,
+        /// <summary>
+        /// Same as 'To' but defaults to be somewhere close below the object.
+        /// </summary>
+        Below,
+        /// <summary>
+        /// Go around an object so the current position would be out of sight, or if a direction is specified
+        /// this acts like 'of'.
+        /// </summary>
+        Behind,
+        /// <summary>
+        /// Go from the current position some distance closer to the target. If unspecified, travels for 1 tick.
+        /// </summary>
+        Closer,
+        /// <summary>
+        /// Go from the current position some distance farther from the target. If unspecified, travels for 1 tick.
+        /// </summary>
+        Farther
+    }
+
+    /*
     public class MovementPreposition : EnumClass<MovementPreposition>
     {
         /// <summary>
         /// Go into an enterable thing.
         /// </summary>
-        public static MovementPreposition In = new MovementPreposition(nameof(In), false, false);
+        public static MovementPreposition In = new MovementPreposition(nameof(In), false, false, false, false);
         /// <summary>
         /// Stand anywhere on top of a thing.
         /// </summary>
         //allow with distance as a 'don't move off this' thing? probably not.
-        public static MovementPreposition On = new MovementPreposition(nameof(On), false, false);
+        public static MovementPreposition On = new MovementPreposition(nameof(On), false, false, false, false);
         /// <summary>
-        /// Go to or near an object. Defaults to trying to be in arms reach. Can specify how far, or even in what direction,
-        /// to be from the object.
+        /// Go to or near an object. Defaults to trying to be in arms reach.
+        /// TODO: Defaults to 'In' for enterable things?
         /// </summary>
-        public static MovementPreposition To = new MovementPreposition(nameof(To), true, false);
+        public static MovementPreposition To = new MovementPreposition(nameof(To), false, false, false, false);
         /// <summary>
-        /// Same as 'To' but requires distance.
+        /// Same as 'To' but requires a distance.
         /// </summary>
-        public static MovementPreposition Of = new MovementPreposition(nameof(Of), true, true);
+        public static MovementPreposition From = new MovementPreposition(nameof(From), false, false, true, true);
+        /// <summary>
+        /// Same as 'To' but requires a direction and optional distance.
+        /// </summary>
+        public static MovementPreposition Of = new MovementPreposition(nameof(Of), true, true, true, false);
         /// <summary>
         /// Same as 'To' but defaults to be somewhere close above the object.
         /// </summary>
@@ -138,12 +209,25 @@ namespace EspressoMUD
         /// Same as 'To' but defaults to be somewhere close below the object.
         /// </summary>
         public static MovementPreposition Below = new MovementPreposition(nameof(Below), true, false);
+        /// <summary>
+        /// Go around an object so the current position would be out of sight, or if a direction is specified
+        /// this acts like 'of'.
+        /// </summary>
+        public static MovementPreposition Behind = new MovementPreposition(nameof(Behind), true, false);
+        /// <summary>
+        /// Go from the current position some distance closer to the target. If unspecified, travels for 1 tick.
+        /// </summary>
+        public static MovementPreposition Closer = new MovementPreposition(nameof(Closer), true, false);
+        /// <summary>
+        /// Go from the current position some distance farther from the target. If unspecified, travels for 1 tick.
+        /// </summary>
+        public static MovementPreposition Farther = new MovementPreposition(nameof(Farther), true, false);
 
         public readonly bool AllowDirection;
         public readonly bool RequireDirection;
 
 
-        public MovementPreposition(string propertyName, bool allowDirection, bool requireDirection) : base(propertyName)
+        public MovementPreposition(string propertyName, bool allowDirection, bool requireDirection, bool allowDistance, bool requireDistance) : base(propertyName)
         {
             AllowDirection = allowDirection;
             RequireDirection = requireDirection;
@@ -151,40 +235,125 @@ namespace EspressoMUD
 
 
     }
+    */
 
     public class MovementDirection
     {
         public Directions direction;
 
-        public int distance; //-1 = distance not given, only a direction. Else distance in millimeters.
-        //TODO: Add a scaling type?
+        public int distanceCount;
+        public MovementUnit distanceUnit;
+    }
+    public class PreciseMovementDirection
+    {
+        public double dx;
+        public double dy;
+        public double dz;
     }
 
-    public class MovementDestination
+    public enum MovementUnit
     {
-        /// <summary>
-        /// Physical object that is the destination of this movement action. If null, character is just moving
-        /// in a direction without a specific destination.
-        /// </summary>
-        public Item item;
+        NoDistance, //There was no distance component.
+        Unspecified, //Default (or user said 'rooms'). Room-relative unit (slightly MOB-relative), whatever the MOB would currently consider a room from their current location.
+        Step, //Time-relative unit (mostly MOB-relative). One 'step' for the MOB. Something like 6 steps to a tick?
+        Absolute, //Absolute unit, 1/10 of a millimeter. Smallest measurement in EspressoMUD.  Other absolute units will be converted to this.
+    }
+    /*
+     * 
+                case MovementPreposition.Above:
+                case MovementPreposition.Behind:
+                case MovementPreposition.Below:
+                case MovementPreposition.Closer:
+                case MovementPreposition.Farther:
+                case MovementPreposition.From:
+                case MovementPreposition.In:
+                case MovementPreposition.Of:
+                case MovementPreposition.On:
+                case MovementPreposition.To:
 
-        /// <summary>
-        /// If no item, these tell how far the character is trying to move.
-        /// </summary>
-        public int deltaX;
-        public int deltaY;
-        public int deltaZ;
+     */
 
-        /// <summary>
-        /// What the action is trying to do; move 'onto' or 'into' or just 'near' the target.
-        /// </summary>
-        public MovementPreposition relation;
-
-        /// <summary>
-        /// How close to the destination is acceptable. Only used with 'near'?
-        /// </summary>
-        public int howClose;
-
-
+    public static partial class Extensions
+    {
+        public static bool AllowDirection(this MovementPreposition type)
+        {
+            switch(type)
+            {
+                case MovementPreposition.Above:
+                case MovementPreposition.Below:
+                case MovementPreposition.Closer:
+                case MovementPreposition.Farther:
+                case MovementPreposition.From:
+                case MovementPreposition.In:
+                case MovementPreposition.On:
+                case MovementPreposition.Out:
+                case MovementPreposition.To:
+                    return false;
+                case MovementPreposition.Behind:
+                case MovementPreposition.Of:
+                    return true;
+            }
+            throw new Exception("Unexpected type: " + type);
+        }
+        public static bool RequireDirection(this MovementPreposition type)
+        {
+            switch (type)
+            {
+                case MovementPreposition.Above:
+                case MovementPreposition.Behind:
+                case MovementPreposition.Below:
+                case MovementPreposition.Closer:
+                case MovementPreposition.Farther:
+                case MovementPreposition.From:
+                case MovementPreposition.In:
+                case MovementPreposition.On:
+                case MovementPreposition.Out:
+                case MovementPreposition.To:
+                    return false;
+                case MovementPreposition.Of:
+                    return true;
+            }
+            throw new Exception("Unexpected type: " + type);
+        }
+        public static bool AllowDistance(this MovementPreposition type)
+        {
+            switch (type)
+            {
+                case MovementPreposition.Behind:
+                case MovementPreposition.In:
+                case MovementPreposition.On:
+                case MovementPreposition.Out:
+                case MovementPreposition.To:
+                    return false;
+                case MovementPreposition.Above:
+                case MovementPreposition.Below:
+                case MovementPreposition.Closer:
+                case MovementPreposition.Farther:
+                case MovementPreposition.From:
+                case MovementPreposition.Of:
+                    return true;
+            }
+            throw new Exception("Unexpected type: " + type);
+        }
+        public static bool RequireDistance(this MovementPreposition type)
+        {
+            switch (type)
+            {
+                case MovementPreposition.Above:
+                case MovementPreposition.Behind:
+                case MovementPreposition.Below:
+                case MovementPreposition.Closer:
+                case MovementPreposition.Farther:
+                case MovementPreposition.From:
+                case MovementPreposition.In:
+                case MovementPreposition.Of:
+                case MovementPreposition.On:
+                case MovementPreposition.Out:
+                case MovementPreposition.To:
+                    return false;
+                    return true;
+            }
+            throw new Exception("Unexpected type: " + type);
+        }
     }
 }

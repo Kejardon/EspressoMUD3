@@ -46,7 +46,22 @@
     <Compile Include="ArraySegmentStream.cs" />
     <Compile Include="Builder.cs" />
     <Compile Include="CircularConcurrentQueue.cs" />
+    <Compile Include="CircularList.cs" />
     <Compile Include="EnumClass.cs" />
+    <Compile Include="Geometry\Geometry.cs" />
+    <Compile Include="Geometry\Point.cs" />
+    <Compile Include="Geometry\SimpleArea.cs" />
+    <Compile Include="Geometry\SimpleVolume.cs" />
+    <Compile Include="Geometry\Vector.cs" />
+    <Compile Include="InternalListStruct.cs" />
+    <Compile Include="LazyList.cs" />
+    <Compile Include="LazyUnion.cs" />
+    <Compile Include="RegionTree\AreaNode.cs" />
+    <Compile Include="RegionTree\HasArea.cs" />
+    <Compile Include="RegionTree\AreaTree.cs" />
+    <Compile Include="RegionTree\HasVolume.cs" />
+    <Compile Include="RegionTree\VolumeNode.cs" />
+    <Compile Include="RegionTree\VolumeTree.cs" />
     <Compile Include="SharedLocks\LockableLock.cs" />
     <Compile Include="SharedLocks\LockableLockGroup.cs" />
     <Compile Include="Extensions.cs" />
@@ -57,10 +72,12 @@
     <Compile Include="ReverseComparer.cs" />
     <Compile Include="SharedLocks\ILockHolder.cs" />
     <Compile Include="ShortcutDictionary.cs" />
+    <Compile Include="SortedDuplicableList.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

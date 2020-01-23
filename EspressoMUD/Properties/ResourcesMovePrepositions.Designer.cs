@@ -70,11 +70,47 @@ namespace EspressoMUD.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to BEHIND.
+        /// </summary>
+        internal static string Behind {
+            get {
+                return ResourceManager.GetString("Behind", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to BELOW,UNDER.
         /// </summary>
         internal static string Below {
             get {
                 return ResourceManager.GetString("Below", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to CLOSER,CLOSER TO.
+        /// </summary>
+        internal static string Closer {
+            get {
+                return ResourceManager.GetString("Closer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to FARTHER,FARTHER FROM.
+        /// </summary>
+        internal static string Farther {
+            get {
+                return ResourceManager.GetString("Farther", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to FROM.
+        /// </summary>
+        internal static string From {
+            get {
+                return ResourceManager.GetString("From", resourceCulture);
             }
         }
         
@@ -102,6 +138,15 @@ namespace EspressoMUD.Properties {
         internal static string On {
             get {
                 return ResourceManager.GetString("On", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OUT,OUT OF.
+        /// </summary>
+        internal static string Out {
+            get {
+                return ResourceManager.GetString("Out", resourceCulture);
             }
         }
         

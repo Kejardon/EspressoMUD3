@@ -237,8 +237,9 @@ namespace KejUtils.SharedLocks
         /// This will avoid deadlocks in case of multiple threads locking the same resources; one thread will allow
         /// another thread to take its resources and interrupt it depending on event priority.
         /// </summary>
-        /// <param name="resource"></param>
-        internal void AddResource(ILockable resource, LockableLock currentEvent)
+        /// <param name="resource">Resource to get the lock on</param>
+        /// <param name="newLock">Returned lock that represents the event's lock on this resource.</param>
+        internal void AddResource(ILockable resource, LockableLock newLock)
         {
             LockableLockGroup otherGroup;
         //LockableLock currentEvent = eventQueue[eventQueue.Count - 1];
@@ -260,7 +261,7 @@ namespace KejUtils.SharedLocks
             if (this.contains(otherGroup, false))
             {
                 //Already have the lock somewhere. Make sure *this* event also has it marked as being used.
-                addToLockableLock(currentEvent, otherGroup);
+                addToLockableLock(newLock, otherGroup);
                 return;
             }
 
@@ -386,7 +387,7 @@ namespace KejUtils.SharedLocks
             }
         setupSubgroup:
             //This is the highest priority thread. Setup subgroups.
-            addToLockableLock(currentEvent, otherGroup);
+            addToLockableLock(newLock, otherGroup);
             return;
 
         }
@@ -412,8 +413,7 @@ namespace KejUtils.SharedLocks
         }
 
         /// <summary>
-        /// TODO: Make this return a LockableLock, make that dispose remove the specific event, move AddResource to the event.
-        /// I guess this also means AddResource here should take a LockableLock and add subgroups to that lock if needed...
+        /// 
         /// </summary>
         /// <param name="objectToLock"></param>
         /// <param name="forEvent"></param>

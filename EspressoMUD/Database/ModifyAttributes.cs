@@ -288,7 +288,7 @@ namespace EspressoMUD
             }
             else
             {
-                return value.GetType().Name + " " + value.GetSaveID(null);
+                return value.GetType().Name + " " + value.GetSaveID();
             }
         }
 

@@ -29,13 +29,13 @@ namespace EspressoMUD
         /// </summary>
         /// <param name="source">Object to save data from</param>
         /// <param name="writer">BinaryWriter backed by an expandable MemoryStream. Calling function can use the memory stream directly if it likes, but the position must be correct when done.</param>
-        public abstract void Get(ISaveable source, BinaryWriter writer);
+        public abstract void Get(object source, BinaryWriter writer);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="target">Object to load data to</param>
         /// <param name="data">BinaryReader backed by an ArraySegmentStream. Calling function can use the ArraySegmentStream directly but should stay within bounds.</param>
-        public abstract void Set(ISaveable target, BinaryReader data);
+        public abstract void Set(object target, BinaryReader data);
         public string Key; //Maybe not needed? Key converts to ParserID depending on ClassID.
         public Type owningType; //The type that declares this parser. Not necessarily the type that is saving/loading data, may be an ancestor.
         public virtual string OwningTypeName
@@ -46,26 +46,26 @@ namespace EspressoMUD
         public ushort ParserID;
         //public T Default; //Strongly recommended to implement, but not necessary.
 
-        protected static Action<ISaveable, T> GenerateSetter<T>(FieldInfo field)
+        protected static Action<object, T> GenerateSetter<T>(FieldInfo field)
         {
             if (typeof(T) != field.FieldType) return null;
             Type baseType = field.DeclaringType;
 
-            ParameterExpression paramOne = Expression.Parameter(typeof(ISaveable), "argOne");
+            ParameterExpression paramOne = Expression.Parameter(typeof(object), "argOne");
             ParameterExpression paramTwo = Expression.Parameter(typeof(T), "argTwo");
-            Action<ISaveable, T> del = Expression.Lambda<Action<ISaveable, T>>(
+            Action<object, T> del = Expression.Lambda<Action<object, T>>(
                 Expression.Assign(Expression.MakeMemberAccess(Expression.Convert(paramOne, baseType), field), paramTwo),
                 new ParameterExpression[] { paramOne, paramTwo }).Compile();
             return del;
         }
-        protected static Func<ISaveable, T> GenerateGetter<T>(FieldInfo field)
+        protected static Func<object, T> GenerateGetter<T>(FieldInfo field)
         {
             if (typeof(T) != field.FieldType) return null;
             Type baseType = field.DeclaringType;
 
-            ParameterExpression paramOne = Expression.Parameter(typeof(ISaveable), "argOne");
+            ParameterExpression paramOne = Expression.Parameter(typeof(object), "argOne");
             ParameterExpression paramTwo = Expression.Parameter(typeof(T), "result");
-            Func<ISaveable, T> del = Expression.Lambda<Func<ISaveable, T>>(
+            Func<object, T> del = Expression.Lambda<Func<object, T>>(
                 Expression.MakeMemberAccess(Expression.Convert(paramOne, baseType), field),
                 //Expression.Assign(Expression.MakeMemberAccess(paramOne, field), paramTwo),
                 new ParameterExpression[] { paramOne }).Compile();
@@ -87,10 +87,10 @@ namespace EspressoMUD
             }
         }
 
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
         }
-        public override void Set(ISaveable target, BinaryReader data)
+        public override void Set(object target, BinaryReader data)
         {
         }
     }
@@ -159,8 +159,8 @@ namespace EspressoMUD
 
         public override SaveableParser Parser(FieldInfo field)
         {
-            if (field.FieldType == typeof(IPosition))
-                return new SaveSubobjectParser<IPosition>(field);
+            if (field.FieldType == typeof(IRoomPosition))
+                return new SaveSubobjectParser<IRoomPosition>(field);
             throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved subobject.");
         }
     }
@@ -184,16 +184,16 @@ namespace EspressoMUD
             Getter = GenerateGetter<int>(field);
             Setter = GenerateSetter<int>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             writer.Write(Getter.Invoke(source));
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadInt32());
         }
-        private Func<ISaveable, int> Getter;
-        private Action<ISaveable, int> Setter;
+        private Func<object, int> Getter;
+        private Action<object, int> Setter;
     }
 
     public class SaveIntAttribute : SaveableFieldAttribute
@@ -220,16 +220,16 @@ namespace EspressoMUD
             Getter = GenerateGetter<int>(field);
             Setter = GenerateSetter<int>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             writer.Write(Getter.Invoke(source));
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadInt32());
         }
-        private Func<ISaveable, int> Getter;
-        private Action<ISaveable, int> Setter;
+        private Func<object, int> Getter;
+        private Action<object, int> Setter;
     }
     public class SaveIntDefaultParser : SaveableParser
     {
@@ -240,17 +240,17 @@ namespace EspressoMUD
             Getter = GenerateGetter<int>(field);
             Setter = GenerateSetter<int>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             int currentValue = Getter.Invoke(source);
             if (currentValue != defaultValue) writer.Write(currentValue);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadInt32());
         }
-        private Func<ISaveable, int> Getter;
-        private Action<ISaveable, int> Setter;
+        private Func<object, int> Getter;
+        private Action<object, int> Setter;
     }
 
     public class SaveBoolParser : SaveableParser
@@ -260,16 +260,16 @@ namespace EspressoMUD
             Getter = GenerateGetter<bool>(field);
             Setter = GenerateSetter<bool>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             writer.Write(Getter.Invoke(source));
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadBoolean());
         }
-        private Func<ISaveable, bool> Getter;
-        private Action<ISaveable, bool> Setter;
+        private Func<object, bool> Getter;
+        private Action<object, bool> Setter;
     }
     public class SaveBoolDefaultParser : SaveableParser
     {
@@ -280,17 +280,17 @@ namespace EspressoMUD
             Getter = GenerateGetter<bool>(field);
             Setter = GenerateSetter<bool>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             bool currentValue = Getter.Invoke(source);
             if (currentValue != defaultValue) writer.Write(currentValue);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadBoolean());
         }
-        private Func<ISaveable, bool> Getter;
-        private Action<ISaveable, bool> Setter;
+        private Func<object, bool> Getter;
+        private Action<object, bool> Setter;
     }
 
     public class SaveIntArrayAttribute : SaveableFieldAttribute
@@ -309,7 +309,7 @@ namespace EspressoMUD
             Getter = GenerateGetter<int[]>(field);
             Setter = GenerateSetter<int[]>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             int[] array = Getter.Invoke(source);
             if (array != null)
@@ -317,14 +317,14 @@ namespace EspressoMUD
                 foreach (int i in array) writer.Write(i);
             }
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             int[] array = new int[reader.BaseStream.Length / sizeof(int)];
             for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
             Setter.Invoke(target, array);
         }
-        private Func<ISaveable, int[]> Getter;
-        private Action<ISaveable, int[]> Setter;
+        private Func<object, int[]> Getter;
+        private Action<object, int[]> Setter;
     }
 
     public class SaveStringAttribute : SaveableFieldAttribute
@@ -350,17 +350,17 @@ namespace EspressoMUD
             Getter = GenerateGetter<string>(field);
             Setter = GenerateSetter<string>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             string str = Getter.Invoke(source);
             if (str != null && str != defaultValue) writer.Write(str);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             Setter.Invoke(target, reader.ReadString());
         }
-        private Func<ISaveable, string> Getter;
-        private Action<ISaveable, string> Setter;
+        private Func<object, string> Getter;
+        private Action<object, string> Setter;
     }
 
     /// <summary>
@@ -368,26 +368,27 @@ namespace EspressoMUD
     /// If something wants to extend this, probably refactor a bit first.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class SaveSubobjectParser<T> : SaveableParser where T : ISaveable
+    public class SaveSubobjectParser<T> : SaveableParser where T : ISubobject
     {
         public SaveSubobjectParser(FieldInfo field)
         {
             Getter = GenerateGetter<T>(field);
             Setter = GenerateSetter<T>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
-            ISaveable child = Getter.Invoke(source);
+            ISubobject child = Getter.Invoke(source);
             if (child == null) return;
             DatabaseManager.SaveSubobject(child, writer);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             T child = (T)DatabaseManager.LoadSubobject(reader);
+            child.Parent = target;
             Setter.Invoke(target, child);
         }
-        private Func<ISaveable, T> Getter;
-        private Action<ISaveable, T> Setter;
+        private Func<object, T> Getter;
+        private Action<object, T> Setter;
     }
 
     /// <summary>
@@ -407,7 +408,7 @@ namespace EspressoMUD
         public SaveAccountNameParser(FieldInfo field) : base(field, null)
         {
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             base.Set(target, reader);
             AccountObjects.Get().FinishLoading(target as Account);
@@ -426,13 +427,13 @@ namespace EspressoMUD
             Getter = GenerateGetter<T>(field);
             Setter = GenerateSetter<T>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             T list = Getter.Invoke(source);
             int[] saveIDs = list.GetIDs();
             foreach (int i in saveIDs) writer.Write(i);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             int[] array = new int[reader.BaseStream.Length / sizeof(int)];
             for (int i = 0; i < array.Length; i++) array[i] = reader.ReadInt32();
@@ -440,8 +441,8 @@ namespace EspressoMUD
             list.SetIDs(array);
             Setter.Invoke(target, list);
         }
-        private Func<ISaveable, T> Getter;
-        private Action<ISaveable, T> Setter;
+        private Func<object, T> Getter;
+        private Action<object, T> Setter;
     }
 
     /// <summary>
@@ -456,21 +457,21 @@ namespace EspressoMUD
             Getter = GenerateGetter<T>(field);
             Setter = GenerateSetter<T>(field);
         }
-        public override void Get(ISaveable source, BinaryWriter writer)
+        public override void Get(object source, BinaryWriter writer)
         {
             T reference = Getter.Invoke(source);
             if (reference == null) return;
-            int saveID = reference.GetSaveID(ObjectType.TypeByClass[ObjectsType]);
+            int saveID = reference.GetSaveID();
             writer.Write(saveID);
         }
-        public override void Set(ISaveable target, BinaryReader reader)
+        public override void Set(object target, BinaryReader reader)
         {
             int saveID = reader.ReadInt32();
             T reference = ObjectType.TypeByClass[ObjectsType].Get(saveID, true, true) as T;
             Setter.Invoke(target, reference);
         }
-        private Func<ISaveable, T> Getter;
-        private Action<ISaveable, T> Setter;
+        private Func<object, T> Getter;
+        private Action<object, T> Setter;
     }
     public class SaveMOBParser : SaveGenericObjectTypeObject<MOB>
     {

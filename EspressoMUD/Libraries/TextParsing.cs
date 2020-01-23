@@ -33,7 +33,7 @@ namespace EspressoMUD
 
 
         /// <summary>
-        /// 
+        /// Find an item that the specified mob can sense and identify from the given text input.
         /// </summary>
         /// <param name="input"></param>
         /// <param name="mob"></param>
@@ -42,8 +42,9 @@ namespace EspressoMUD
         /// <param name="onPrompt"></param>
         /// <param name="addToPrompt"></param>
         /// <returns></returns>
-        public static Item FindKnownItem(StringWords input, MOB mob, int start, int end, SelectAction onPrompt = null, StandardHeldPrompt addToPrompt = null)
+        public static Item FindKnownItem(StringWords input, MOB mob, int start, int end, SelectAction onPrompt = null, StandardHeldPrompt addToPrompt = null) //, out RoomLink viaExit
         {
+            //viaExit = null; //TODO later: When finding items in other rooms, report what direction the item is in.
             List<Item> options = FindKnownItems(input, mob, start, end);
             if (options.Count == 1)
                 return options[0];
@@ -57,7 +58,7 @@ namespace EspressoMUD
 
             if (options.Count == 0)
             {
-                client.sendMessage("You don't see a '" + input.StringRange(start, end) + "'");
+                client.sendMessage("You don't notice a '" + input.StringRange(start, end) + "'");
                 return null;
             }
 
@@ -66,7 +67,11 @@ namespace EspressoMUD
                 client.sendMessage("There are too many things that fit that description.");
                 return null;
             }
+            //TODO: Consider an alternative function to move prompt stuff to and add an out bool for prompting instead, not
+            //sure if there's a need for that bool right now though; leave this one without prompt stuff
 
+            //TODO: Some way to check if the prompt is still valid would be nice too, but not sure how to do that well without
+            // just requiring another function passed into here. Might do that anyways.
             SelectFromList<Item> itemSelectPrompt = new SelectFromList<Item>(onPrompt.Invoke);
             if (addToPrompt == null || !addToPrompt.TransitionTo(itemSelectPrompt, true))
             {
@@ -77,7 +82,7 @@ namespace EspressoMUD
         public static List<Item> FindKnownItems(StringWords input, MOB mob, int start, int end)
         {
             input.ValidateEndIndex(ref end);
-            Item[] items = GeneralUtilities.VisibleItems(mob, mob.Body.Position);
+            Item[] items = GeneralUtilities.VisibleItems(mob, mob.Body);
             List<Item> matchingItems = new List<Item>();
             foreach (Item item in items)
             {
@@ -125,9 +130,22 @@ namespace EspressoMUD
             return false;
         }
 
-        public static MovementDirection ParseAsDirection(StringWords text, MOB mob, ref int startIndex, ref int endIndex, bool requireAll = false, bool getDistance = true)
+        /// <summary>
+        /// Attempt to parse user's input text as a direction / distance.
+        /// </summary>
+        /// <param name="text">Full input to parse</param>
+        /// <param name="startIndex">Index of first word to try to parse (inclusive). </param>
+        /// <param name="endIndex">Index of last word to try to parse (exclusive). If the text is found, this will be updated
+        /// to after the last word found (first index not belonging to the MovementDirection)</param>
+        /// <param name="requireDirection">If true, parsing will return failure if no direction component is found.</param>
+        /// <param name="requireDistance">If true, parsing will return failure if no distance component is found.</param>
+        /// <param name="getDistance">If true, distance may be parsed. This is ignored (assumed true) if requireDistance is true.</param>
+        /// <returns>The direction and distance parsed from the input text.</returns>
+        public static MovementDirection ParseAsDirection(StringWords text, int startIndex, ref int endIndex, bool requireDirection = false, bool requireDistance = false, bool getDirection = true, bool getDistance = true)
         {
             text.ValidateEndIndex(ref endIndex);
+
+            getDistance |= requireDistance;
 
             Directions foundDirection = Directions.NoDirection;
             //List<Directions> directions = new List<Directions>();
@@ -135,44 +153,53 @@ namespace EspressoMUD
             string[][] directionStrings = directionOptions.Key;
             Directions[] directionValues = directionOptions.Value;
             int foundDistance = -1;
-            for (int i = startIndex; i < endIndex; i++)
+            MovementUnit foundUnit = MovementUnit.NoDistance;
+            int i = startIndex;
+            for (; i < endIndex; i++)
             {
                 string word = text.Segments[i];
                 if (foundDirection == Directions.NoDirection)
                 {
-                    int found = MatchString(directionStrings, word);
+                    int found = MatchString(directionStrings, text.Segments, ref i);
                     if (found != -1)
                     {
                         foundDirection = directionValues[found];
+                        //Loop will increment but i is already the correct value after MatchString,
+                        i--; //decrement here to 'skip' the increment.
                         continue;
                     }
                 }
-                if (getDistance && foundDistance == -1)
+                if (getDistance && foundUnit == MovementUnit.NoDistance)
                 {
-                    int distanceWords = ParseAsDistance(text, mob, out foundDistance, i, Math.Min(i + 1, endIndex - 1));
+                    int distanceWords = ParseAsDistance(text, out foundDistance, out foundUnit, i, Math.Min(i + 1, endIndex - 1));
                     if (distanceWords != 0)
                     {
                         if (distanceWords == 2) i++;
                         continue;
                     }
                 }
-
-                if (requireAll)
-                {
-                    return null;
-                }
-                endIndex = i;
+                
                 break;
             }
-            if (foundDirection == Directions.NoDirection)
+            if (foundDirection == Directions.NoDirection && requireDirection)
+            {
+                return null;
+            }
+            if (foundUnit == MovementUnit.NoDistance && requireDistance)
+            {
+                return null;
+            }
+            if (foundDirection == Directions.NoDirection && foundUnit == MovementUnit.NoDistance)
             {
                 return null;
             }
 
+            endIndex = i;
             return new MovementDirection()
             {
                 direction = foundDirection,
-                distance = foundDistance
+                distanceCount = foundDistance,
+                distanceUnit = foundUnit
             };
 
         }
@@ -185,12 +212,10 @@ namespace EspressoMUD
         /// <param name="distance">Distance to move, in millimeters. If -1, then parsing failed.</param>
         /// <param name="startIndex">Where the distance is expected to be.</param>
         /// <returns>Number of words successfully parsed. 0 if failed, up to 2 if succeeded. </returns>
-        public static int ParseAsDistance(StringWords text, MOB mob, out int distance, int startIndex = 0, int endIndex = 0)
+        public static int ParseAsDistance(StringWords text, out int distance, out MovementUnit unit, int startIndex = 0, int endIndex = 0)
         {
-
-            //TODO: Scaling to mob somehow? Need to consider design. Probably won't happen here, but passing mob just so it's futureproofed.
-            //TODO: Alternative scalings. x paces, x rooms, etc.
             distance = -1;
+            unit = MovementUnit.NoDistance;
             if (startIndex >= text.Segments.Length) return 0;
 
             string firstWord, secondWord = null;
@@ -216,12 +241,22 @@ namespace EspressoMUD
             {
                 if (secondWord == null || FindAPreposition(text, typeof(Distances), out distanceType, startIndex + 1, startIndex + 2) == -1)
                 {
-                    //Defaulting to yards. TODO: Scale to the mob? Probably more likely allow unitless and have something else figure it out.
-                    distanceType = (int)Distances.Yard;
+                    distanceType = (int)Distances.Default;
                     secondWord = null;
                 }
             }
-            distance = (int)((magnitude * (long)distanceConversions[distanceType]) / 10);
+            if (distanceType >= (int)Distances.Default)
+            {
+                distance = magnitude;
+                unit = distanceType == (int)Distances.Default ? MovementUnit.Unspecified :
+                    distanceType == (int)Distances.Step ? MovementUnit.Step :
+                    MovementUnit.NoDistance;
+            }
+            else
+            {
+                distance = (int)((magnitude * (long)distanceConversions[distanceType]) / 10);
+                unit = MovementUnit.Absolute;
+            }
             return secondWord == null ? 2 : 1;
         }
 
@@ -251,6 +286,8 @@ namespace EspressoMUD
             Meter, //1000
             Kilometer, //1000000
             Mile, //1609344
+            Default, //Relative unit, 1 'room'
+            Step //Relative unit, 1/6 of a tick
         }
         private static int[] distanceConversions = new int[]
         {
@@ -272,7 +309,7 @@ namespace EspressoMUD
         /// <param name="prepositionValue">Which preposition was found (can be cast to that preposition). -1 if no preposition found.</param>
         /// <param name="startIndex">Which word in input to start searching on (inclusive). Defaults to 0 (start of input)</param>
         /// <param name="endIndex">Which word in input to stop searching on (exclusive). Defaults to -1 (end of input)</param>
-        /// <returns></returns>
+        /// <returns>Index of the first word of the preposition</returns>
         public static int FindAPreposition(StringWords text, Type typeOfPreposition, out int prepositionValue, int startIndex = 0, int endIndex = -1) //TODO: Replace typeOfPreposition for an easier-to-use type of variable. An enum of enums?
         {
             text.ValidateEndIndex(ref endIndex);
@@ -281,7 +318,8 @@ namespace EspressoMUD
             string[][] options = OptionsForPreposition(typeOfPreposition);
             for (int i = startIndex; i < endIndex; i++)
             {
-                prepositionValue = MatchString(options, text.Segments[i]); //NOTE: This assumes enums always have default-assigned values (0, 1, 2, etc.)
+                int j = i;
+                prepositionValue = MatchString(options, text.Segments, ref j); //NOTE: This assumes enums always have default-assigned values (0, 1, 2, etc.)
                 if (prepositionValue != -1)
                 {
                     return i;
@@ -347,6 +385,13 @@ namespace EspressoMUD
             return newEntry;
         }
 
+        /// <summary>
+        /// Check if any of the words in options matches the passed in word. If so, return which set matched.
+        /// Important: All options must be single words. Use the other overload for multiple words.
+        /// </summary>
+        /// <param name="options">List of sets of words (e.g. synonyms for A, synonyms for B...)</param>
+        /// <param name="word">word to find in options</param>
+        /// <returns>Which set was matched, or -1 if no sets matched.</returns>
         private static int MatchString(string[][] options, string word)
         {
             for (int j = 0; j < options.Length; j++)
@@ -357,6 +402,43 @@ namespace EspressoMUD
                     if (word.Equals(prepOption, StringComparison.CurrentCultureIgnoreCase))
                     {
                         return j;
+                    }
+                }
+            }
+            return -1;
+        }
+        /// <summary>
+        /// Check if any of the words in options matches the passed in word/phrase. If so, return which set matched.
+        /// </summary>
+        /// <param name="options">List of sets of words (e.g. synonyms for A, synonyms for B...)</param>
+        /// <param name="words">word/phrase to find in options</param>
+        /// <param name="wordIndex">index in words to start searching for matches. This will be incremented to past
+        /// the matching words if a match is found.</param>
+        /// <returns>Which set was matched, or -1 if no sets matched.</returns>
+        private static int MatchString(string[][] options, string[] words, ref int wordIndex)
+        {
+            for (int j = 0; j < options.Length; j++)
+            {
+                string[] prepOptions = options[j];
+                foreach (string prepOption in prepOptions)
+                {
+                    string wordToMatch = prepOption;
+                    int thisIndex = wordIndex;
+                tryNextWord:
+                    string nextWord = words[thisIndex];
+                    if (wordToMatch.StartsWith(nextWord, StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        if (wordToMatch.Length == nextWord.Length) //If this was a complete match, we're done, finish.
+                        {
+                            wordIndex = thisIndex + 1;
+                            return j;
+                        } //else see if this is multi-word, and if so try to match the next word.
+                        if (thisIndex + 1 < words.Length && wordToMatch[nextWord.Length] == ' ')
+                        {
+                            thisIndex++;
+                            wordToMatch = wordToMatch.Substring(nextWord.Length + 1);
+                            goto tryNextWord;
+                        }
                     }
                 }
             }
@@ -432,6 +514,9 @@ namespace EspressoMUD
         {
             WholeString = str;
             Segments = str.Split(' ');
+            //TODO: There should be some way for the user input to clump words together. For example
+            //"go north of square" when a room is called "north of square", user wants to specify it as "go to 'north of square'"
+            //and not "go north of the item 'square'".
         }
 
         public ArraySegment<string> ArrayRange(int start, int end = -1)

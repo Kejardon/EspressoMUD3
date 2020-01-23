@@ -46,9 +46,13 @@ namespace EspressoMUD
         static void Main(string[] args)
         {
             Console.CancelKeyPress += CleanupProgram;
+
             Metadata.Initialize();
+
             DatabaseManager.Start();
             DatabaseManager.LoadFullType(ObjectType.TypeByClass[typeof(Account)]);
+
+            Command.GenerateCommands();
 
             EndPoint endPoint;
             //TODO: Get EndPoint from configuration.
