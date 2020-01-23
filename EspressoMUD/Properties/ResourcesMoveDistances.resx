@@ -120,6 +120,9 @@
   <data name="Centimeter" xml:space="preserve">
     <value>CENTIMETER,CENTIMETERS,CM</value>
   </data>
+  <data name="Default" xml:space="preserve">
+    <value>ROOM,ROOMS</value>
+  </data>
   <data name="Foot" xml:space="preserve">
     <value>FOOT,FEET,FT</value>
   </data>
@@ -137,6 +140,9 @@
   </data>
   <data name="Millimeter" xml:space="preserve">
     <value>MILLIMETER,MILLIMETERS,MM</value>
+  </data>
+  <data name="Step" xml:space="preserve">
+    <value>STEP,STEPS,SECOND,SECONDS</value>
   </data>
   <data name="Yard" xml:space="preserve">
     <value>YARD,YARDS,YD</value>

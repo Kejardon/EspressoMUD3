@@ -48,24 +48,46 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Account.cs" />
+    <Compile Include="BaseTask.cs" />
     <Compile Include="Client.cs" />
     <Compile Include="Commands\Command.cs" />
     <Compile Include="Commands\DirectionCommand.cs" />
     <Compile Include="Commands\Go.cs" />
+    <Compile Include="Geometry\ObstacleHitLineGroup.cs" />
+    <Compile Include="Mechanisms\Mechanism.cs" />
     <Compile Include="Commands\MOBCommand.cs" />
+    <Compile Include="Mechanisms\MovementMechanism.cs" />
     <Compile Include="Database\DatabaseManager.cs" />
     <Compile Include="Database\IModifiable.cs" />
+    <Compile Include="Database\ISubobject.cs" />
     <Compile Include="Database\ModifyAttributes.cs" />
     <Compile Include="Database\SaveValues.cs" />
+    <Compile Include="Distance.cs" />
+    <Compile Include="Events\IEventListener.cs" />
+    <Compile Include="Events\MovementEvent.cs" />
+    <Compile Include="Events\TryGoEvent.cs" />
     <Compile Include="Events\RoomEvent.cs" />
+    <Compile Include="Geometry\Geometry.cs" />
+    <Compile Include="Geometry\Hitbox.cs" />
+    <Compile Include="Geometry\Obstacle.cs" />
+    <Compile Include="Geometry\PathStep.cs" />
+    <Compile Include="Geometry\PointRelativeWorld.cs" />
+    <Compile Include="Geometry\RectangleObstacle.cs" />
+    <Compile Include="Geometry\TargetRegion.cs" />
+    <Compile Include="Geometry\WorldRelativePosition.cs" />
+    <Compile Include="Geometry\XYZLine.cs" />
+    <Compile Include="Geometry\XYZPoint.cs" />
+    <Compile Include="Geometry\XYZVector.cs" />
     <Compile Include="GlobalValues.cs" />
     <Compile Include="IItemContainer.cs" />
-    <Compile Include="IPosition.cs" />
+    <Compile Include="IRoomPosition.cs" />
     <Compile Include="IRoomLinkContainer.cs" />
     <Compile Include="Item.cs" />
+    <Compile Include="ItemSubclasses\Body.cs" />
     <Compile Include="Libraries\GeneralUtilities.cs" />
     <Compile Include="Libraries\TextParsing.cs" />
     <Compile Include="Log.cs" />
+    <Compile Include="Mechanisms\PoseMechanism.cs" />
     <Compile Include="Prompts\AdminModify\AdminModifyField.cs" />
     <Compile Include="Prompts\AdminModify\AdminModifyInput.cs" />
     <Compile Include="Prompts\AdminModify\AdminSelectModify.cs" />
@@ -110,16 +132,21 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Rooms\DiscreteRoom.cs" />
+    <Compile Include="Rooms\PositionOfRoom.cs" />
+    <Compile Include="Rooms\RectangleRoom.cs" />
     <Compile Include="Rooms\Room.cs" />
     <Compile Include="RoomLinks\OpenLink.cs" />
     <Compile Include="RoomLinks\RoomLink.cs" />
     <Compile Include="Database\SaveAttributes.cs" />
     <Compile Include="Server.cs" />
+    <Compile Include="Shape.cs" />
     <Compile Include="Temp.cs" />
     <Compile Include="ThreadManager.cs" />
+    <Compile Include="TickManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Events\TryGoEvent.bak" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -136,6 +163,7 @@
     <EmbeddedResource Include="Properties\ResourcesMovePrepositions.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>ResourcesMovePrepositions.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -145,6 +173,7 @@
   <ItemGroup>
     <None Include="Resources\TextFile1.txt" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

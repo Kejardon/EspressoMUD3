@@ -22,6 +22,15 @@ namespace EspressoMUD
         /// </summary>
         public const int DefaultTimeout = 1000;
 
+        /// <summary>
+        /// Amount of time each tick takes in real time.
+        /// </summary>
+        public const int RealMillisecondsPerTick = 4000;
+        /// <summary>
+        /// Amount of time each tick takes in game time. //TODO: Not sure if this is what I want.
+        /// </summary>
+        //public const int GameMillisecondsPerTick = 24000;
+
         private static ConditionalWeakTable<object, ReaderWriterLockSlim> CustomLocks = new ConditionalWeakTable<object, ReaderWriterLockSlim>();
         //private static Dictionary<Thread, List<MUDLock>> Locks = new Dictionary<Thread, List<MUDLock>>();
         /// <summary>
@@ -149,6 +158,7 @@ namespace EspressoMUD
         //}
 
         /// <summary>
+        /// This should be called with a using block or a similar dispose pattern.
         /// Get a lock for a specific event and resources related to that event. Returns a RoomEvent if successful, or null if
         /// it failed to get the lock.
         /// </summary>
@@ -157,102 +167,45 @@ namespace EspressoMUD
         /// <param name="timeout">-1 to wait forever. 0 to not wait at all. Otherwise milliseconds to wait.</param>
         /// <param name="ignorePause">Allow this to get a lock even if the MUD is paused. This probably should never be used.</param>
         /// <returns></returns>
-        public static RoomEvent StartEvent(Room forRoom, RoomEvent baseEvent = null, int timeout = ThreadManager.DefaultTimeout, bool ignorePause = false)
+        public static RoomEvent StartEvent(Room forRoom, RoomEvent baseEvent, int timeout = ThreadManager.DefaultTimeout, bool? ignorePause = null)
         {
             DateTime startTime = DateTime.UtcNow;
 
             if (baseEvent == null)
-                baseEvent = new SimpleRoomEvent();
+                throw new ArgumentNullException("baseEvent"); //TODO: Clean this up.
+                                                              //baseEvent = new SimpleRoomEvent();
 
             //Skip MUDIsPaused check if this thread is already modifying MUD state.
-            ignorePause |= LockableLockGroup.HasALock();
-            using (IDisposable MUDLock = ignorePause ? GetMUDLockIgnorePause() : GetMUDLock(startTime.RemainingTimeout(timeout)))
+            bool skipThisPause = (ignorePause == null ? LockableLockGroup.HasALock() : ignorePause.Value);
+            IDisposable MUDLock = null;
+            LockableLock foundLock = null;
+            try
             {
+                MUDLock = skipThisPause ? GetMUDLockIgnorePause() : GetMUDLock(startTime.RemainingTimeout(timeout));
                 if (MUDLock != null)
                 {
 
-                    LockableLock foundLock = baseEvent.lockToDispose = forRoom.EnterLock(baseEvent, startTime.RemainingTimeout(timeout));
-                    try
+                    foundLock = forRoom.EnterLock(baseEvent, startTime.RemainingTimeout(timeout));
+                    if (foundLock == null) //Failed to get a lock.
                     {
-                        //TODO: set up locks and stuff.
-                        if (foundLock == null) //Failed to get a lock.
-                        {
-                            return null;
-                        }
-
-                        return baseEvent;
+                        return null;
                     }
-                    catch (Exception e)
-                    {
-                        try
-                        {
-                            baseEvent.Dispose();
-                        }
-                        catch (Exception) { } //Log? Probably not, really just want to log and fix the first exception.
-                        throw e;
-                    }
+                    baseEvent.SetLockToDispose(foundLock);
+                    foundLock = null;
+                    //Important weird thing: This is basically 'passing off' the lock from this function to baseEvent.
+                    //Setting MUDLock to null prevents it being disposed of right now, and when baseEvent is disposed
+                    //of later it will do the same cleanup MUDLock would have done.
+                    MUDLock = null;
+                    return baseEvent;
                 }
+            }
+            finally
+            {
+                if (MUDLock != null) MUDLock.Dispose();
+                if (foundLock != null) foundLock.Dispose();
             }
             return null;
         }
-        public static void DisposeEvent(RoomEvent finishedEvent)
-        {
-            if (!LockableLockGroup.HasALock())
-            {
-                lock (WaitUntilNoThreads)
-                {
-                    Locks.Remove(Thread.CurrentThread);
-                    if (Locks.Count == 0)
-                    {
-                        WaitUntilNoThreads.Set();
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get the lock for a specific object. Should always be wrapped in a using block. If the MUDLock
-        /// returned is default(MUDLock), a lock was not obtained and the related object should not be edited.
-        /// </summary>
-        /// <param name="forObject"></param>
-        /// <param name="timeout"></param>
-        /// <param name="ignorePause">If this should ignore </param>
-        /// <returns></returns>
-        //public static MUDLock GetLock(object forObject, int timeout, bool ignorePause)
-        //{
-        //    //TODO: Convert forObject to a room-container if possible?
-        //    return GetMUDLock(forObject, timeout, ignorePause);
-        //}
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="forObject"></param>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
-        //public static MUDLock GetLock(object forObject, int timeout = ThreadManager.DefaultTimeout)
-        //{
-        //    //TODO: Convert forObject to a room-container if possible?
-        //    return GetMUDLock(forObject, timeout, Locks.ContainsKey(Thread.CurrentThread));
-        //}
-        //public static void ReturnLock(MUDLock oldLock)
-        //{
-        //    //object forObject = oldLock.LockObject;
-        //    ReaderWriterLockSlim lockObject = GetRWLock(oldLock.LockObject);
-        //    lockObject.ExitWriteLock();
-        //    lock (WaitUntilNoThreads)
-        //    {
-        //        List<MUDLock> threadLocks = Locks[oldLock.OwningThread];
-        //        threadLocks.Remove(oldLock);
-        //        if(threadLocks.Count == 0)
-        //        {
-        //            Locks.Remove(oldLock.OwningThread);
-        //            if(Locks.Count == 0)
-        //            {
-        //                WaitUntilNoThreads.Reset();
-        //            }
-        //        }
-        //    }
-        //}
 
         private static ThreadLockDisposable reusableDisposable = new ThreadLockDisposable();
         [ThreadStatic]
@@ -287,7 +240,7 @@ namespace EspressoMUD
         /// <returns>A disposable object if a lock was successfully gotten. Null if no lock was gotten and the caller should abort.</returns>
         public static IDisposable GetMUDLock(int timeout = -1)
         {
-            DateTime startTime = DateTime.Now;
+            DateTime startTime = DateTime.UtcNow;
             while(true)
             {
                 lock (WaitUntilUnpaused)
@@ -313,33 +266,52 @@ namespace EspressoMUD
                 }
             }
         }
-        private class ThreadLockDisposable : IDisposable
+        public static void DisposeMUDLock()
         {
-            public void Dispose()
+            lock (WaitUntilNoThreads)
             {
-                lock (WaitUntilNoThreads)
+                if (!Locks.Contains(Thread.CurrentThread))
                 {
-                    if (!Locks.Contains(Thread.CurrentThread))
+                    throw new InvalidOperationException("Current thread does not have a MUD lock.");
+                }
+                LockCount--;
+                if (LockCount == 0)
+                {
+                    Locks.Remove(Thread.CurrentThread);
+                    if (Locks.Count == 0)
                     {
-                        throw new InvalidOperationException("Current thread does not have a MUD lock.");
-                    }
-                    LockCount--;
-                    if (LockCount == 0)
-                    {
-                        Locks.Remove(Thread.CurrentThread);
-                        if (Locks.Count == 0)
-                        {
-                            WaitUntilNoThreads.Set();
-                        }
+                        WaitUntilNoThreads.Set();
                     }
                 }
             }
         }
-
-        private class SimpleRoomEvent : RoomEvent
+        private class ThreadLockDisposable : IDisposable
         {
-            //TODO: What does this need?
+            public void Dispose()
+            {
+                DisposeMUDLock();
+            }
         }
+
+        //private class SimpleRoomEvent : RoomEvent
+        //{
+        //    public SimpleRoomEvent(Item source, EventType type)
+        //    {
+        //        this.source = source;
+        //        this.type = new EventType[] { type };
+        //    }
+
+        //    private Item source;
+        //    public override Item EventSource()
+        //    {
+        //        return source;
+        //    }
+
+        //    public override EventType Type
+        //    {
+        //        get { return EventType.None; }
+        //    }
+        //}
     }
     //public struct MUDLock : IDisposable
     //{

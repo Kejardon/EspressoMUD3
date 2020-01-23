@@ -47,6 +47,23 @@ namespace EspressoMUD.Prompts
         }
 
         /// <summary>
+        /// Reset a user to logged in to just their account.
+        /// </summary>
+        /// <param name="forClient">Client connection that is logging in.</param>
+        public static StandardHeldPrompt GetLoggedInPrompt(Client forClient)
+        {
+            if (forClient.LoggedInAccount == null)
+            {
+                throw new Exception("Error: User not logged into account to return to logged-in state.");
+            }
+            LoginPrompt parent = new LoginPrompt(forClient);
+            LoggedInMenu child = new LoggedInMenu(parent);
+            parent.NextPrompt = child;
+            parent.Reset();
+            return child;
+        }
+
+        /// <summary>
         /// Get the string 
         /// </summary>
         public override string PromptMessage
@@ -116,7 +133,7 @@ namespace EspressoMUD.Prompts
                     bool success = AccountObjects.Get().Add(foundAccount);
                     if (success)
                     {
-                        foundAccount.Save(true);
+                        foundAccount.Save();
                         FinishLogin();
                     }
                     else

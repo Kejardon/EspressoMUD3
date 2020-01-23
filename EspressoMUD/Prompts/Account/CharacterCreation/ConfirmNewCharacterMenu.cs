@@ -39,8 +39,11 @@ namespace EspressoMUD.Prompts
             Account account = User.LoggedInAccount;
             if (account != null && newChar != null)
             {
-                //TODO: Set starting location (from default) for newChar.
-                newChar.Save(true);
+                //TODO: Proper Body creation. Temporary placeholder next line.
+                newChar.Body = new Body(); newChar.Body.AddMOB(newChar);
+
+                //TODO: Set starting location for newChar? If not, MUD's default start location will be used later.
+                newChar.Save();
                 account.AddCharacter(newChar);
             }
             Cancel();

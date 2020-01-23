@@ -9,9 +9,9 @@ namespace EspressoMUD
     public static class GeneralUtilities
     {
 
-        public static Item[] VisibleItems(MOB mob, IPosition fromLocation)
+        public static Item[] VisibleItems(MOB mob, Body vehicle)
         {
-            Room startingRoom = fromLocation.forRoom;
+            Room startingRoom = vehicle.Position.ForRoom;
             //Massively TODO.
             //In the long term, I think MOBs should have some short term memory about this, knowing who went where,
             //which might also be used to cache what they can see.

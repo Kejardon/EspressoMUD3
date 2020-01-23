@@ -12,6 +12,16 @@ namespace KejUtils
     /// </summary>
     public abstract class EnumClass
     {
+        /// <summary>
+        /// Automatically convert an EnumClass enum to an integer.
+        /// </summary>
+        /// <param name="en"></param>
+        public static implicit operator int(EnumClass en)
+        {
+            return en.Value;
+        }
+
+
         internal static Dictionary<Type, EnumMetaData> dataForTypes = new Dictionary<Type, EnumMetaData>();
         protected internal class EnumMetaData
         {
@@ -64,7 +74,7 @@ namespace KejUtils
             }
             return data;
         }
-        private void AddEnum(int number, EnumMetaData meta)
+        private int AddEnum(int number, EnumMetaData meta)
         {
             dataForTypes[GetType()] = meta;
 
@@ -73,6 +83,7 @@ namespace KejUtils
             meta.NextValue = number + 1;
 
             meta.EnumNames.Add(Name, this);
+            return number;
         }
         
         /// <summary>
@@ -81,12 +92,32 @@ namespace KejUtils
         /// <param name="name">Value to find.</param>
         /// <param name="type">Enum set to search from.</param>
         /// <returns></returns>
-        public static EnumClass Parse(string name, Type type)
+        public static T Parse<T>(string name, Type type) where T : EnumClass
         {
             validateType(type);
-            return dataForTypes[type].EnumNames[name];
+            return dataForTypes[type].EnumNames[name] as T;
         }
-
+        /// <summary>
+        /// Get an specific value from the enum set specified.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Value to find.</param>
+        /// <param name="enumType">Enum set to search from.</param>
+        /// <returns></returns>
+        public static T GetEnum<T>(int value, Type enumType) where T : EnumClass
+        {
+            return dataForTypes[enumType].EnumOptions[value] as T;
+        }
+        /// <summary>
+        /// Get a specific value from the enum set specified.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public T GetEnum<T>(int value) where T : EnumClass
+        {
+            return dataForTypes[this.GetType()].EnumOptions[value] as T;
+        }
         /// <summary>
         /// Get all the names for the enum set specified.
         /// </summary>
@@ -113,10 +144,13 @@ namespace KejUtils
         /// <param name="name">Value to find.</param>
         /// <param name="value">Value if it is found, else null.</param>
         /// <returns>True if the value exists.</returns>
-        public static bool TryParse(string name, out EnumClass value, Type type)
+        public static bool TryParse<T>(string name, out T value, Type type) where T : EnumClass
         {
+            EnumClass intermediate;
             validateType(type);
-            return dataForTypes[type].EnumNames.TryGetValue(name, out value);
+            bool success = dataForTypes[type].EnumNames.TryGetValue(name, out intermediate);
+            value = intermediate as T;
+            return success;
         }
 
         /// <summary>
@@ -128,7 +162,7 @@ namespace KejUtils
         {
             Name = propertyName;
             EnumMetaData meta = getMetaData();
-            this.AddEnum(meta.NextValue, meta);
+            Value = this.AddEnum(meta.NextValue, meta);
         }
         /// <summary>
         /// Create a new enum choice with a specified value.
@@ -139,7 +173,7 @@ namespace KejUtils
         {
             Name = propertyName;
             EnumMetaData meta = getMetaData();
-            this.AddEnum(i, meta);
+            Value = this.AddEnum(i, meta);
         }
         
         /// <summary>
@@ -161,6 +195,10 @@ namespace KejUtils
         /// The string that represents this enum choice. Unique for a given enum set.
         /// </summary>
         public readonly string Name;
+        /// <summary>
+        /// The integer value that represents this enum choice. Unique for a given enum set.
+        /// </summary>
+        public readonly int Value;
 
         /// <summary>
         /// The string that represents this enum choice. Unique for a given enum set.
@@ -179,7 +217,6 @@ namespace KejUtils
     /// <typeparam name="T"></typeparam>
     public abstract class EnumClass<T> : EnumClass where T : EnumClass<T>
     {
-
         /// <summary>
         /// Create a new enum choice. It will automatically be assigned a value, starting at 0 or the next
         /// available value above the previous enum's choice.
@@ -215,7 +252,7 @@ namespace KejUtils
         /// Get all the values for the enum set this enum belongs to.
         /// </summary>
         /// <returns></returns>
-        public T[] GetValues()
+        public T[] GetValues() //TODO: This needs to be tested. I don't think T[] will work here, this might need to be EnumClass[]
         {
             return metaData.SortedValues.ToArray() as T[];
         }

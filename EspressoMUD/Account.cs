@@ -40,8 +40,7 @@ namespace EspressoMUD
         [SaveField("Characters")]
         private ListMOBs unloadedCharacters = new ListMOBs();
 
-        //private List<DelayedMOB> unloadedCharacters; //TODO: Call this.Save() whenever this list is modified. 
-
+        //private List<DelayedMOB> unloadedCharacters;
         //private List<MOB> characters;
         public MOB[] Characters
         {
@@ -88,7 +87,7 @@ namespace EspressoMUD
         public SaveValues SaveValues { get; set; }
         [SaveID("ID")]
         protected int AccountID = -1; //Only supports IAccount ObjectType, so assume AccountID
-        public int GetSaveID(ObjectType databaseGroup) { return AccountID; }
-        public void SetSaveID(ObjectType databaseGroup, int id) { AccountID = id; }
+        public int GetSaveID() { return AccountID; }
+        public void SetSaveID(int id) { AccountID = id; }
     }
 }

@@ -20,7 +20,8 @@ namespace KejUtils.SharedLocks
 
         /// <summary>
         /// Optional action when this event is interrupting another event.
-        /// This is called before RespondToInterrupt on the other event.
+        /// This is called before RespondToInterrupt on the other event. This may be called multiple times for the same
+        /// LockHolder, if that LockHolder has multiple independant locks.
         /// </summary>
         /// <param name="otherHolder">The event being interrupted.</param>
         /// <param name="ownThread">True if otherHolder is on the same thread / is a parent event.</param>
@@ -28,7 +29,8 @@ namespace KejUtils.SharedLocks
 
         /// <summary>
         /// Optional response to this event being interrupted by another event.
-        /// This is called after InterruptOtherEvent from the other event.
+        /// This is called after InterruptOtherEvent from the other event. This may be called multiple times for the same
+        /// LockHolder, if that LockHolder has multiple independant locks.
         /// </summary>
         /// <param name="otherHolder">The event interrupting this event.</param>
         /// <param name="ownThread">True if otherHolder is on the same thread / is a child event.</param>

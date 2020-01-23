@@ -119,7 +119,7 @@ namespace EspressoMUD
         /// Sends a plain text message to the client.
         /// </summary>
         /// <param name="str">Message to send</param>
-        public void sendMessage(String str)
+        public void sendMessage(String str, params object[] arguments)
         {
             if (!this.socket.Connected) return;
 
@@ -147,6 +147,15 @@ namespace EspressoMUD
                         case 'n':
                             output.Append(this.PreferredEndOfLine);
                             endedLine = true;
+                            break;
+                        case '[':
+                            int stopIndex = str.IndexOf(']', i+3);
+                            if (stopIndex == -1) break;
+                            string escapedString = str.Substring(i + 1, stopIndex - i - 1);
+                            if (processEscapedString(escapedString, output, arguments))
+                            {
+                                i = stopIndex;
+                            }
                             break;
                         default:
                             break;
@@ -180,6 +189,86 @@ namespace EspressoMUD
             }
             catch (ObjectDisposedException) { } //TODO: Also handle SocketException? Maybe check specific errorcodes?
         }
+
+        /// <summary>
+        /// List of strings that can be used to denote objects that should be replaced with a string representing the object,
+        /// depending on how the viewer observes the object.
+        /// </summary>
+        public enum ObjectSubstitutions
+        {
+            SUBJECT, //he / she / you
+            OBJECT, //him / her / you
+            OBJECTSELF, //himself / herself / yourself
+            POSSESSIVE, //his / her / your
+            NAME, //'bob' / 'the gnoll' / you
+            NAMESELF, //'bob' / 'the gnoll' / yourself
+            IS, //'is' when not self and singular, 'are' when self or plural
+        }
+
+        private bool processEscapedString(string escapeString, StringBuilder output, object[] arguments)
+        {
+            /*
+               F - Set foreground color to RGB value. Can be followed by B/b
+               f - Set foreground color to 0-255 value. Can be followed by B/b
+               B - Set background color to RGB value. Can be followed by F/f
+               b - Set background color to 0-255 value. Can be followed by F/f
+               O - Parse argument for how the mob observes it. Followed by a number and one of the below codes. To use this, the message must have object arguments to fill in for the variables below.
+
+             */
+            switch(escapeString[0])
+            {
+                //TODO: Implement these.
+                case 'F':
+                    break;
+                case 'f':
+                    break;
+                case 'B':
+                    break;
+                case 'b':
+                    break;
+                case 'O':
+                    int i = 1;
+                    while (Char.IsDigit(escapeString[i])) i++;
+                    int argIndex;
+                    if (int.TryParse(escapeString.Substring(1, i-1), out argIndex) && argIndex < arguments.Length)
+                    {
+                        object target = arguments[argIndex];
+                        //TODO: Various checks for things, like if target is plural or singular. Maybe need a 'Observable' interface
+                        // that has those things instead of just object.
+                        // Also finish implementing these. Maybe make them part of the Observable interface instead.
+                        switch (escapeString.Substring(i))
+                        {
+                            case nameof(ObjectSubstitutions.IS):
+                                output.Append(nameof(ObjectSubstitutions.IS));
+                                break;
+                            case nameof(ObjectSubstitutions.NAME):
+                                output.Append(nameof(ObjectSubstitutions.NAME));
+                                break;
+                            case nameof(ObjectSubstitutions.NAMESELF):
+                                output.Append(nameof(ObjectSubstitutions.NAMESELF));
+                                break;
+                            case nameof(ObjectSubstitutions.OBJECT):
+                                output.Append(nameof(ObjectSubstitutions.OBJECT));
+                                break;
+                            case nameof(ObjectSubstitutions.OBJECTSELF):
+                                output.Append(nameof(ObjectSubstitutions.OBJECTSELF));
+                                break;
+                            case nameof(ObjectSubstitutions.POSSESSIVE):
+                                output.Append(nameof(ObjectSubstitutions.POSSESSIVE));
+                                break;
+                            case nameof(ObjectSubstitutions.SUBJECT):
+                                output.Append(nameof(ObjectSubstitutions.SUBJECT));
+                                break;
+                            default:
+                                return false;
+                        }
+                        return true;
+                    }
+                    break;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Sends a message to the client in binary, suitable for any type of data.
         /// </summary>
@@ -414,7 +503,6 @@ namespace EspressoMUD
             //    else
             //    {
             //        mainPrompt = null;
-            //        //TODO: Maybe something here for elegantly handling prompts expiring at the same time you input something.
             //    }
             //}
         }
@@ -424,7 +512,7 @@ namespace EspressoMUD
             int promptIndex = words[0].IndexOf('.');
             if (promptIndex == -1) return false;
             int toPrompt;
-            if (!Int32.TryParse(words[0].Substring(0, promptIndex - 1), out toPrompt)) return false;
+            if (!Int32.TryParse(words[0].Substring(0, promptIndex), out toPrompt)) return false;
             //words[0] = words[0].Substring(promptIndex + 1);
             HeldPrompt prompt = this.GetPrompt(toPrompt);
             if (prompt == null)
@@ -447,31 +535,58 @@ namespace EspressoMUD
             return true;
         }
 
+        /// <summary>
+        /// Try to parse the input as a command for this MOB to perform. If found, immediately executes the command.
+        /// This method will probably end up being refactored in the future, some of this makes more sense in Command.cs and
+        /// some of this will need to be smarter about context for commands before just running commands (e.g. 'order')
+        /// </summary>
+        /// <param name="input">Full input string to try to Execute.</param>
+        /// <param name="currentMob">Current MOB to perform the action as, if there is a MOB associated with the input.</param>
         public void TryFindCommand(string input, MOB currentMob)
         {
             string[] words = input.Split(' ');
-            
-            CommandEntry foundCommand = null;
-            if (currentMob != null)
+            string commandWord = words[0].ToLower();
+            Command command;
+            if (Command.UniqueCommands.TryGetValue(commandWord, out command))
             {
-                foundCommand = currentMob.OwnCommands.GetCommand(words[0]);
-            }
-            Account currentAccount = LoggedInAccount;
-            if (currentAccount != null)
-            {
-                foundCommand = foundCommand.CompareRequest(currentAccount.OwnCommands.GetCommand(words[0]), words[0]);
-            }
-            if (foundCommand != null)
-            {
-                QueuedCommand userCommand = new QueuedCommand()
+                if (!command.CanUse(this, currentMob))
                 {
-                    command = foundCommand.Command,
-                    cmdString = input
-                };
+                    sendMessage("You cannot ever use \"" + command.OriginalCommandName + "\".");
+                    return;
+                }
+            }
+            else
+            {
+                List<CommandEntry> options = Command.SortedAllCommands;
+                int index = options.BinarySearch(new CommandEntry(commandWord, null));
+                if (index < 0)
+                {
+                    index = -index - 1;
+                }
+                while (index > 0 && options[index - 1].Trigger.StartsWith(commandWord)) //In case of exact commandWord matches, backtrack to the first Command with that word.
+                {
+                    index--;
+                }
+                while (index < options.Count)
+                {
+                    CommandEntry next = options[index];
+                    if (!next.Trigger.StartsWith(commandWord))
+                        break; //No matches. command is default from TryGetValue
+                    if (next.Command.CanUse(this, currentMob))
+                    {
+                        command = next.Command;
+                        break;
+                    }
+                }
+            }
+            
+            if (command != null)
+            {
+                QueuedCommand userCommand = command.GetQueuedCommand(input);
                 if (currentMob != null)
-                    foundCommand.Command.execute(currentMob, userCommand);
+                    command.Execute(currentMob, userCommand);
                 else
-                    foundCommand.Command.execute(this, userCommand);
+                    command.Execute(this, userCommand);
             }
             else
             {
@@ -624,10 +739,32 @@ namespace EspressoMUD
                 ClearPrompts();
                 mainPrompt = new LoginPrompt(this);
             }
-            //TODO: Probably account.LogOut()?
+            //No need for account.LogOut(), but if there was it would maybe go here.
             this.LoggedInAccount = null;
             mainPrompt.OnTransition();
         }
+
+        /// <summary>
+        /// Forces this connection to log out of the current MOB, but stay in the account.
+        /// </summary>
+        public void ReturnToLoggedInPrompt()
+        {
+            lock(this.prompts)
+            {
+                if (this.LoggedInAccount == null)
+                {
+                    LogOut();
+                }
+                else
+                {
+                    ClearPrompts();
+                    mainPrompt = LoginPrompt.GetLoggedInPrompt(this);
+                    mainPrompt.OnTransition();
+                }
+            }
+        }
+
+
 
         /// <summary>
         /// Forces this connection to disconnect.

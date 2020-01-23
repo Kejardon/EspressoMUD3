@@ -25,12 +25,6 @@ namespace EspressoMUD
 
         #region ISaveable data
         /// <summary>
-        /// List of SaveIDAttributes for this object. Only for objects that belong to multiple ObjectTypes.
-        /// </summary>
-        // TODO: This should probably be deleted since things can't implement multiple ObjectTypes directly, instead
-        // linking objects with container interfaces to make a single mud-object with multiple types.
-        public SaveIDParser[] SaveIDParsers;
-        /// <summary>
         /// List of parsers to use when saving this object. Iterate over entire list to generate data.
         /// </summary>
         //public SaveableParser[] Parsers;
@@ -51,10 +45,9 @@ namespace EspressoMUD
         /// </summary>
         private ISaveable NextToSave;
         /// <summary>
-        /// List of ObjectType interfaces that are implemented by this class.
-        /// TODO: This will always be only 1 type now? Need to clean up this and some related things.
+        /// ObjectType / group that this class belongs to.
         /// </summary>
-        public ObjectType[] ImplementedTypes;
+        public ObjectType ObjectType;
         /// <summary>
         /// Listed as public, but only intended to be used by the database. FileStream associated with the file for this 
         /// </summary>
@@ -144,6 +137,10 @@ namespace EspressoMUD
     public static partial class Extensions
     {
         public static Metadata GetMetadata(this ISaveable saveable)
+        {
+            return Metadata.LoadedClasses[saveable.GetType()];
+        }
+        public static Metadata GetMetadata(this ISubobject saveable)
         {
             return Metadata.LoadedClasses[saveable.GetType()];
         }

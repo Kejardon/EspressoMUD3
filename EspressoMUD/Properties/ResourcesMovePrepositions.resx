@@ -120,8 +120,20 @@
   <data name="Above" xml:space="preserve">
     <value>ABOVE,OVER</value>
   </data>
+  <data name="Behind" xml:space="preserve">
+    <value>BEHIND</value>
+  </data>
   <data name="Below" xml:space="preserve">
     <value>BELOW,UNDER</value>
+  </data>
+  <data name="Closer" xml:space="preserve">
+    <value>CLOSER,CLOSER TO</value>
+  </data>
+  <data name="Farther" xml:space="preserve">
+    <value>FARTHER,FARTHER FROM</value>
+  </data>
+  <data name="From" xml:space="preserve">
+    <value>FROM</value>
   </data>
   <data name="In" xml:space="preserve">
     <value>IN,INTO</value>
@@ -131,6 +143,9 @@
   </data>
   <data name="On" xml:space="preserve">
     <value>ON</value>
+  </data>
+  <data name="Out" xml:space="preserve">
+    <value>OUT,OUT OF</value>
   </data>
   <data name="To" xml:space="preserve">
     <value>TO,NEAR</value>

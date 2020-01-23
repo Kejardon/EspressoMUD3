@@ -208,7 +208,7 @@ namespace EspressoMUD.Prompts
             {
                 if (alternatives != null)
                 {
-                    if (alternatives.All(alt => alt.Equals(alternatives[0])))
+                    if (alternatives.All(alt => alt.EqualTo(alternatives[0])))
                     {
                         SelectedValue = alternatives[0].data;
                         alternatives[0].action();
@@ -237,6 +237,11 @@ namespace EspressoMUD.Prompts
             {
                 this.action = action;
                 this.data = data;
+            }
+
+            public bool EqualTo(DictionaryEntry other)
+            {
+                return action == other.action && data.Equals(other.data);
             }
         }
     }

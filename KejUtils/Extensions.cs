@@ -45,6 +45,63 @@ namespace KejUtils
             return false;
         }
 
+        public static int BinarySearchDuplicates<T>(this IList<T> list, T value, IComparer<T> comparer = null)
+        {
+            if (comparer == null) comparer = Comparer<T>.Default;
+
+            int firstSearch = BinarySearch(list, value, comparer);
+            if (firstSearch == -1) return -1;
+            int crawlSearch = firstSearch;
+            T next = list[crawlSearch];
+            while (true)
+            {
+                if (value.Equals(next)) return crawlSearch;
+                crawlSearch++;
+                if (crawlSearch == list.Count) break;
+                next = list[crawlSearch];
+                if (comparer.Compare(value, next) != 0)
+                    break;
+            }
+            crawlSearch = firstSearch - 1;
+            if (crawlSearch == -1) return -1;
+            next = list[crawlSearch];
+            while (true)
+            {
+                if (value.Equals(next)) return crawlSearch;
+                crawlSearch--;
+                if (crawlSearch == -1) return -1;
+                next = list[crawlSearch];
+                if (comparer.Compare(value, next) != 0)
+                    return -1;
+            }
+        }
+
+        public static int BinarySearch<T>(this IList<T> list, T value, IComparer<T> comparer = null)
+        {
+            if (comparer == null) comparer = Comparer<T>.Default;
+
+            int start = 0;
+            int end = list.Count - 1;
+            while (end >= start)
+            {
+                int mid = (end + start) / 2;
+                int compare = comparer.Compare(value, list[mid]);
+                if (compare == 0)
+                {
+                    return mid;
+                }
+                if (compare < 0)
+                {
+                    end = mid - 1;
+                }
+                else
+                {
+                    start = mid + 1;
+                }
+            }
+            return -start - 1;
+        }
+
         /// <summary>
         /// Get the amount of time to wait given a requested timeout and the start time.
         /// </summary>

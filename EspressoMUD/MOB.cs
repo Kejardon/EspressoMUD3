@@ -7,7 +7,7 @@ using EspressoMUD.Prompts;
 
 namespace EspressoMUD
 {
-    public class MOB : IMOBContainer, ISaveable
+    public class MOB : IMOBContainer, ISaveable, IEventListener
     {
         /// <summary>
         /// Get the MOB associated with this IMOBContainer
@@ -18,7 +18,7 @@ namespace EspressoMUD
         /// <summary>
         /// 
         /// </summary>
-        public List<CommandEntry> OwnCommands { get; protected set; } = new List<CommandEntry>();
+        //public List<CommandEntry> OwnCommands { get; protected set; } = new List<CommandEntry>();
 
         public Client Client { get; set; }
 
@@ -35,7 +35,6 @@ namespace EspressoMUD
             }
         }
 
-        public Item Body { get; } //TODO: Create and replace this with a Body class that extends Item?
 
         //Room MainLocation { get; }
 
@@ -51,6 +50,9 @@ namespace EspressoMUD
         }
 
 
+        [SaveField("Body")]
+        private Body body;
+        public Body Body { get { return body; } set { body = value; this.Save(); } }
 
         [SaveField("Name")]
         private string name;
@@ -64,8 +66,8 @@ namespace EspressoMUD
         public SaveValues SaveValues { get; set; }
         [SaveID("ID")]
         protected int MobID = -1; //Only supports IMOBContainer ObjectType, so assume IMOBContainer
-        public int GetSaveID(ObjectType databaseGroup) { return MobID; }
-        public void SetSaveID(ObjectType databaseGroup, int id) { MobID = id; }
+        public int GetSaveID() { return MobID; }
+        public void SetSaveID(int id) { MobID = id; }
 
         public void Delete()
         {
@@ -74,6 +76,70 @@ namespace EspressoMUD
                 OwningAccount.RemoveCharacter(this);
             }
             Extensions.Delete(this);
+        }
+
+        public void AddEventListener(RoomEvent forEvent)
+        {
+            switch (forEvent.Type)
+            {
+                case EventType.TryGo:
+                    if ((forEvent as TryGoEvent).MoveSource() == this)
+                    {
+                        forEvent.AddResponder(new ResponderWrapper(RespondToOwnTryGo), forEvent.TickDuration());
+                    }
+                    break;
+            }
+
+            Client currentClient = Client;
+            if (currentClient != null)
+            {
+                forEvent.AddResponder(new ResponderWrapper<Body>(this.Body, AttemptToObserve, AttemptToObserve), forEvent.TickDuration());
+            }
+        }
+        public void RespondToOwnTryGo(RoomEvent firedEvent)
+        {
+            TryGoEvent tryGoEvent = firedEvent as TryGoEvent;
+            tryGoEvent.StandardPathfinding(); //TODO: Is this all that's needed? look at this again once StandardPathFinding is finished.
+
+
+        }
+
+        private void AttemptToObserve(RoomEvent forEvent, Body body)
+        {
+            Client currentClient = Client;
+            if (currentClient == null) return;
+
+            if (forEvent.CanObserveThis(this, body))
+            {
+                forEvent.SendObservedMessage(currentClient);
+            }
+        }
+
+        private List<Mechanism> availableMechanisms = new List<Mechanism>();
+        /// <summary>
+        /// Check the full list of ways this MOB can perform actions.
+        /// </summary>
+        /// <returns></returns>
+        public List<Mechanism> AvailableMechanisms()
+        {
+            return availableMechanisms;
+        }
+        /// <summary>
+        /// Get a list of ways this MOB can perform a specific kind of action.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public List<Mechanism> AvailableMechanisms(Mechanism.Type type)
+        {
+            List<Mechanism> list = new List<Mechanism>();
+            foreach (Mechanism mechanism in availableMechanisms)
+            {
+                if (mechanism.type == type)
+                {
+                    list.Add(mechanism);
+                }
+            }
+            return list;
         }
     }
 }

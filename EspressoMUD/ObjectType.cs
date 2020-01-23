@@ -295,17 +295,17 @@ namespace EspressoMUD
         /// <returns>True on success. False if somehow the add failed.</returns> 
         public virtual bool Add(ISaveable existingObject, bool assumeNew=true)
         {
-            int id = existingObject.GetSaveID(this);
+            int id = existingObject.GetSaveID();
             if(assumeNew && id == -1)
             {
                 // SetSaveID is only called by two things: Loading, and this method. By locking here, this should be threadsafe.
                 lock(this)
                 {
-                    id = existingObject.GetSaveID(this);
+                    id = existingObject.GetSaveID();
                     if (id == -1)
                     {
                         id = NextFreeNumber(); //Note that this may get a lock on ItemDictionary also, and then the file stream.
-                        existingObject.SetSaveID(this, id);
+                        existingObject.SetSaveID(id);
                         existingObject.Save();
                     }
                 }
@@ -344,7 +344,7 @@ namespace EspressoMUD
         /// <returns></returns>
         public virtual bool Remove(ISaveable saveable)
         {
-            int id = saveable.GetSaveID(this);
+            int id = saveable.GetSaveID();
             if (id == -1) return false;
 
             bool success;
@@ -450,7 +450,7 @@ namespace EspressoMUD
         /// <param name="account"></param>
         public void FinishLoading(Account account)
         {
-            if (this.Get(account.GetSaveID(this), false, false) != account)
+            if (this.Get(account.GetSaveID(), false, false) != account)
                 throw new Exception("Invalid account to finish loading.");
 
             usernameMap.TryAdd(account.Name.ToUpper(), account);

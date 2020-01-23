@@ -23,13 +23,13 @@ namespace EspressoMUD
             }
             finally { directionsLock.ExitReadLock(); }
 
-            if (value.Equals(default(KeyValuePair<string[][], Directions[]>)))
+            if (value.Key == null && value.Value == null)
             {
                 directionsLock.EnterWriteLock();
                 try
                 {
                     value = cachedDirections;
-                    if (value.Equals(default(KeyValuePair<string[][], Directions[]>)))
+                    if (value.Key == null && value.Value == null)
                     {
 
                         string[][] directionStrings = new string[baseDirections.Count][];
@@ -50,13 +50,16 @@ namespace EspressoMUD
 
         //TODO: Not sure on scope of this, I feel like other things will need it.
         private Directions UnitDirection { get; set; }
-        protected DirectionCommand(string[] triggerInputs, Directions unitDirection)
+        protected DirectionCommand(string mainTrigger, string[] triggerInputs, Directions unitDirection) : base(mainTrigger, triggerInputs)
         {
+            string[] combinedOptions = new string[triggerInputs.Length + 1];
+            combinedOptions[0] = mainTrigger;
+            Array.Copy(triggerInputs, 0, combinedOptions, 1, triggerInputs.Length);
             directionsLock.EnterWriteLock();
             try
             {
                 cachedDirections = default(KeyValuePair<string[][], Directions[]>);
-                baseDirections.Add(new KeyValuePair<string[], Directions>(triggerInputs, unitDirection));
+                baseDirections.Add(new KeyValuePair<string[], Directions>(combinedOptions, unitDirection));
             }
             finally
             {
@@ -65,13 +68,14 @@ namespace EspressoMUD
         }
 
 
-        public override void execute(MOB mob, QueuedCommand command)
+        public override void Execute(MOB mob, QueuedCommand command)
         {
             StringWords input = command.parsedCommand;
             int distance = -1;
+            MovementUnit unit;
             if (input.Segments.Length > 1)
             {
-                TextParsing.ParseAsDistance(input, mob, out distance, 1);
+                TextParsing.ParseAsDistance(input, out distance, out unit, 1);
             }
             //TODO: finish this
 
