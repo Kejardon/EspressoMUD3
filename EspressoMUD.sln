@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EspressoMUD", "EspressoMUD\EspressoMUD.csproj", "{30D77D71-0027-478B-A188-8B5C79548BC2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KejUtils", "KejUtils\KejUtils.csproj", "{3ADAB630-236C-43E8-AE74-36E92F971A93}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KejPlayground", "..\..\KejPlayground\KejPlayground.csproj", "{1BEA8354-E55E-4E25-8B45-7EED6533244A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KejUtils", "..\..\KejUtils\KejUtils.csproj", "{3ADAB630-236C-43E8-AE74-36E92F971A93}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,16 +19,19 @@ Global
 		{30D77D71-0027-478B-A188-8B5C79548BC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30D77D71-0027-478B-A188-8B5C79548BC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30D77D71-0027-478B-A188-8B5C79548BC2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1BEA8354-E55E-4E25-8B45-7EED6533244A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1BEA8354-E55E-4E25-8B45-7EED6533244A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1BEA8354-E55E-4E25-8B45-7EED6533244A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1BEA8354-E55E-4E25-8B45-7EED6533244A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3ADAB630-236C-43E8-AE74-36E92F971A93}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7653942B-47DD-4E35-854F-51D19557C2B9}
 	EndGlobalSection
 EndGlobal

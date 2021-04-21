@@ -9,11 +9,9 @@ using KejUtils.Geometry;
 namespace EspressoMUD.Rooms
 {
     /// <summary>
-    /// A very standard room with a rectangular shape.
+    /// A very standard framed room with a rectangular shape.
     /// </summary>
-    // dunno if I actually want to enforce 'rectangular'. Ideally depends on the 'frame' of the room. I guess in this case
-    // it will be a room without a frame and just a fixed space instead.
-    public class RectangleRoom : Room
+    public class RectangleFramedRoom : Room
     {
         /// <summary>
         /// Handle items that are anchored in another room, but are partially in this room also.
@@ -36,10 +34,6 @@ namespace EspressoMUD.Rooms
             return false;
         }
 
-        [SaveField("Height")]
-        private int height;
-        public int Height { get { return height; } set { height = value; this.Save(); } }
-
         [SaveField("Width")]
         private int width;
         public int Width { get { return width; } set { width = value; this.Save(); } }
@@ -48,6 +42,84 @@ namespace EspressoMUD.Rooms
         private int length;
         public int Length { get { return length; } set { length = value; this.Save(); } }
 
+        [SaveField("Height")]
+        private int height;
+        public int Height { get { return height; } set { height = value; this.Save(); } }
+
+        [SaveField("Material")]
+        private Materials.Material material;
+        public Materials.Material Material { get { return material; } set { material = value; this.Save(); } }
+
+        [SaveSubobjectList("RoomWalls")]
+        private List<RoomFullWall> roomWalls;
+        public SavedList<RoomFullWall> RoomWalls { get { return new SavedList<RoomFullWall>(roomWalls, this); } }
+
+
+        public class RoomFullWall : ISubobject
+        {
+            private RectangleFramedRoom parent;
+            public object Parent { get { return parent; } set { parent = (RectangleFramedRoom)value; } }
+
+            //In order from 0 to 5: Bottom, top, north, east, south, west. 
+            [SaveField("Direction")]
+            private int direction;
+            public int Direction { get { return direction; } set { direction = value; this.Save(); } }
+
+            [SaveField("Thickness")]
+            private int thickness;
+            public int Thickness { get { return thickness; } set { thickness = value; this.Save(); } }
+
+            [SaveField("Material")]
+            private Materials.Material material;
+            public Materials.Material Material { get { return material; } set { material = value; this.Save(); } }
+
+            //Parts of the wall that aren't the same as the main portion of it. Typically doors, windows, holes etc.
+            [SaveSubobjectList("Holes")]
+            private List<WallHole> holes;
+            public List<WallHole> Holes { get { return holes; } set { holes = value; this.Save(); } }
+
+        }
+
+        public class WallHole : ISubobject
+        {
+            private RoomFullWall parent;
+            public object Parent { get { return parent; } set { parent = (RoomFullWall)value; } }
+
+            /// <summary>
+            /// The position along the first dimension (X, or if no x, Y)
+            /// </summary>
+            [SaveField("PositionX")]
+            private int x;
+            public int PositionX { get { return x; } set { x = value; this.Save(); } }
+
+            /// <summary>
+            /// The position along the second dimension (Z, or if no z, Y)
+            /// </summary>
+            [SaveField("PositionY")]
+            private int y;
+            public int PositionY { get { return y; } set { y = value; this.Save(); } }
+
+            /// <summary>
+            /// The size along the first dimension
+            /// </summary>
+            [SaveField("Width")]
+            private int width;
+            public int Width { get { return width; } set { width = value; this.Save(); } }
+
+            /// <summary>
+            /// The size along the second dimension
+            /// </summary>
+            [SaveField("Length")]
+            private int length;
+            public int Length { get { return length; } set { length = value; this.Save(); } }
+
+            /// <summary>
+            /// What is filling the space of this hole. If null, it has the same filler material as the room.
+            /// </summary>
+            [SaveField("Door")]
+            private ItemDoor door;
+            public ItemDoor Door { get { return door; } set { door = value; this.Save(); } }
+        }
 
         public class StandardPosition : IRoomPosition
         {

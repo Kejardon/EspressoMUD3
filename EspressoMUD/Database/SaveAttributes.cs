@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -108,42 +109,50 @@ namespace EspressoMUD
 
         public override SaveableParser Parser(FieldInfo field)
         {
-            if (field.FieldType == typeof(int))
+            Type subType = field.FieldType;
+            if (subType == typeof(int))
             {
                 if (Default != null)
-                    return new SaveIntDefaultParser(field, (int)Default);
+                    return new SaveIntParser(field, (int)Default);
                 return new SaveIntParser(field);
             }
-            if (field.FieldType == typeof(bool))
+            if (subType.IsEnum)
+            {
+                Type parserType = typeof(SaveEnumParser<>).MakeGenericType(subType);
+                if (Default != null)
+                    return (SaveableParser)Activator.CreateInstance(parserType, field, Default);
+                return (SaveableParser)Activator.CreateInstance(parserType, field);
+            }
+            if (subType == typeof(bool))
             {
                 if (Default != null)
                     return new SaveBoolDefaultParser(field, (bool)Default);
                 return new SaveBoolParser(field);
             }
-            if (field.FieldType == typeof(int[]))
+            if (subType == typeof(int[]))
                 return new SaveIntArrayParser(field);
-            if (field.FieldType == typeof(string))
+            if (subType == typeof(string))
                 return new SaveStringParser(field, (string)Default);
 
-            if (field.FieldType == typeof(ListMOBs))
+            if (subType == typeof(ListMOBs))
                 return new SaveGenericListParser<ListMOBs, MOB>(field);
             //return new SaveListMOBsParser(field);
-            if (field.FieldType == typeof(ListItems))
+            if (subType == typeof(ListItems))
                 return new SaveGenericListParser<ListItems, Item>(field);
             //return new SaveListItemsParser(field);
-            if (field.FieldType == typeof(ListRooms))
+            if (subType == typeof(ListRooms))
                 return new SaveGenericListParser<ListRooms, Room>(field);
             //return new SaveListRoomsParser(field);
-            if (field.FieldType == typeof(ListRoomLinks))
+            if (subType == typeof(ListRoomLinks))
                 return new SaveGenericListParser<ListRoomLinks, RoomLink>(field);
             //return new SaveListRoomLinksParser(field);
 
-            if (field.FieldType == typeof(MOB))
+            if (subType == typeof(MOB))
                 return new SaveMOBParser(field);
-            if (field.FieldType == typeof(Account))
+            if (subType == typeof(Account))
                 return new SaveAccountParser(field);
 
-            throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved field.");
+            throw new ArgumentException("Type " + subType.Name + " is not generically supported as a saved field.");
         }
     }
 
@@ -159,9 +168,54 @@ namespace EspressoMUD
 
         public override SaveableParser Parser(FieldInfo field)
         {
-            if (field.FieldType == typeof(IRoomPosition))
-                return new SaveSubobjectParser<IRoomPosition>(field);
-            throw new ArgumentException("Type " + field.FieldType.Name + " is not generically supported as a saved subobject.");
+            Type type = field.FieldType;
+            if (ApprovedSubobjectType(type))
+            {
+                Type parserType = typeof(SaveSubobjectParser<>).MakeGenericType(type);
+                return (SaveableParser)Activator.CreateInstance(parserType, field);
+            }
+            //if (field.FieldType == typeof(IRoomPosition))
+            //    return new SaveSubobjectParser<IRoomPosition>(field);
+            throw new ArgumentException("Type " + type.Name + " is not generically supported as a saved subobject.");
+        }
+        /// <summary>
+        /// Check if a specific type is okay to use as a type for a subobject parser.
+        /// Long term: This should return data for what special info the subobject parser needs to handle the subobject type.
+        /// Right now none of them need special info so I don't need to figure that out now.
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public static bool ApprovedSubobjectType(Type t)
+        {
+            if (t == typeof(IRoomPosition)) return true;
+
+            return false;
+        }
+    }
+    
+    public class SaveSubobjectListAttribute : SaveableFieldAttribute
+    {
+        public SaveSubobjectListAttribute(string Key, bool NullDefault = true) : base(Key)
+        {
+            nullDefault = NullDefault;
+        }
+
+        private bool nullDefault;
+        public override SaveableParser Parser(FieldInfo field)
+        {
+            Type info = field.FieldType;
+            if (info.IsGenericType && info.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type subType = info.GetGenericArguments()[0];
+
+                if (SaveSubobjectAttribute.ApprovedSubobjectType(subType))
+                {
+                    Type parserType = typeof(SaveSubobjectListParser<>).MakeGenericType(subType);
+                    return (SaveableParser)Activator.CreateInstance(parserType, field, nullDefault);
+                }
+            }
+
+            throw new ArgumentException("Type " + info.Name + " is not supported as a collection of subobjects.");
         }
     }
 
@@ -209,7 +263,7 @@ namespace EspressoMUD
         public override SaveableParser Parser(FieldInfo field)
         {
             if (hasDefault)
-                return new SaveIntDefaultParser(field, defaultValue);
+                return new SaveIntParser(field, defaultValue);
             return new SaveIntParser(field);
         }
     }
@@ -220,9 +274,19 @@ namespace EspressoMUD
             Getter = GenerateGetter<int>(field);
             Setter = GenerateSetter<int>(field);
         }
+        public SaveIntParser(FieldInfo field, int defaultValue)
+        {
+            Getter = GenerateGetter<int>(field);
+            Setter = GenerateSetter<int>(field);
+            hasDefault = true;
+            defaultInt = defaultValue;
+        }
+        private bool hasDefault = false;
+        private int defaultInt;
         public override void Get(object source, BinaryWriter writer)
         {
-            writer.Write(Getter.Invoke(source));
+            int currentValue = Getter.Invoke(source);
+            if (!hasDefault || defaultInt != currentValue) writer.Write(Getter.Invoke(source));
         }
         public override void Set(object target, BinaryReader reader)
         {
@@ -231,26 +295,34 @@ namespace EspressoMUD
         private Func<object, int> Getter;
         private Action<object, int> Setter;
     }
-    public class SaveIntDefaultParser : SaveableParser
+    public class SaveEnumParser<T> : SaveableParser where T : Enum, IConvertible
     {
-        int defaultValue;
-        public SaveIntDefaultParser(FieldInfo field, int defaultValue)
+        public SaveEnumParser(FieldInfo field)
         {
-            this.defaultValue = defaultValue;
-            Getter = GenerateGetter<int>(field);
-            Setter = GenerateSetter<int>(field);
+            Getter = GenerateGetter<T>(field);
+            Setter = GenerateSetter<T>(field);
         }
+        public SaveEnumParser(FieldInfo field, T defaultValue)
+        {
+            Getter = GenerateGetter<T>(field);
+            Setter = GenerateSetter<T>(field);
+            hasDefault = true;
+            this.defaultValue = defaultValue;
+        }
+        private T defaultValue;
+        private bool hasDefault = false;
         public override void Get(object source, BinaryWriter writer)
         {
-            int currentValue = Getter.Invoke(source);
-            if (currentValue != defaultValue) writer.Write(currentValue);
+            T value = Getter.Invoke(source);
+            if (!hasDefault || !defaultValue.Equals(value)) writer.Write(value.ToInt32(null));
         }
         public override void Set(object target, BinaryReader reader)
         {
-            Setter.Invoke(target, reader.ReadInt32());
+            int value = reader.ReadInt32();
+            Setter.Invoke(target, EnumConverter<T>.Convert(reader.ReadInt32()));
         }
-        private Func<object, int> Getter;
-        private Action<object, int> Setter;
+        private Func<object, T> Getter;
+        private Action<object, T> Setter;
     }
 
     public class SaveBoolParser : SaveableParser
@@ -391,6 +463,65 @@ namespace EspressoMUD
         private Action<object, T> Setter;
     }
 
+    public class SaveSubobjectListParser<T> : SaveableParser where T : ISubobject
+    {
+        public SaveSubobjectListParser(FieldInfo field, bool defaultNull)
+        {
+            Getter = GenerateGetter<List<T>>(field);
+            Setter = GenerateSetter<List<T>>(field);
+            this.defaultNull = defaultNull;
+        }
+
+        private bool defaultNull;
+        public override void Get(object source, BinaryWriter writer)
+        {
+            List<T> list = Getter.Invoke(source);
+            if (list == null)
+            {
+                if (!defaultNull) writer.Write((byte)0);
+                return;
+            }
+            if (list.Count == 0)
+            {
+                if (defaultNull) writer.Write((byte)1);
+                return;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                DatabaseManager.SaveSubobject(list[i], writer);
+            }
+        }
+        public override void Set(object target, BinaryReader reader)
+        {
+            List<T> list;
+            if (reader.BaseStream.Length == 1)
+            {
+                if (reader.ReadByte() == 1)
+                {
+                    list = new List<T>();
+                }
+                else
+                {
+                    list = null;
+                }
+            }
+            else
+            {
+                list = new List<T>();
+                while (reader.BaseStream.Length > reader.BaseStream.Position)
+                {
+                    T child = (T)DatabaseManager.LoadSubobject(reader);
+                    child.Parent = target;
+                    list.Add(child);
+                }
+            }
+            Setter.Invoke(target, list);
+        }
+
+        private Func<object, List<T>> Getter;
+        private Action<object, List<T>> Setter;
+    }
+
     /// <summary>
     /// Special attribute for account names. Adds the account to the dictionary of account names.
     /// </summary>
@@ -484,4 +615,22 @@ namespace EspressoMUD
         protected override Type ObjectsType { get { return typeof(Account); } }
     }
 
+    /// <summary>
+    /// Safely convert from an integer to a generic enum.
+    /// From Raif Atef on stackoverflow, slightly modified because I never expect to have long enums so just int is fine for me.
+    /// </summary>
+    /// <typeparam name="TEnum"></typeparam>
+    public static class EnumConverter<T> where T : Enum
+    {
+        public static readonly Func<int, T> Convert = GenerateConverter();
+
+        static Func<int, T> GenerateConverter()
+        {
+            var parameter = Expression.Parameter(typeof(int));
+            var dynamicMethod = Expression.Lambda<Func<int, T>>(
+                Expression.Convert(parameter, typeof(T)),
+                parameter);
+            return dynamicMethod.Compile();
+        }
+    }
 }

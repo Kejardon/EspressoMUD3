@@ -541,7 +541,11 @@ namespace EspressoMUD
             List<Metadata> MetadataByID = new List<Metadata>();
             List<Type> NewClasses = new List<Type>(); //List of classes to later save to .map files, because they are new or have been modified
             Type[] classes = Assembly.GetExecutingAssembly().GetTypes();
-            foreach (Type type in classes) if (!type.IsAbstract && typeof(ISaveable).IsAssignableFrom(type))
+            foreach (Type type in classes)
+            {
+                if (type.IsAbstract) continue;
+                bool isSaveable = typeof(ISaveable).IsAssignableFrom(type);
+                if (isSaveable || typeof(ISubobject).IsAssignableFrom(type))
                 { //Loop over all ISaveable classes
                     bool needSave = false;
                     //List of parsers that were known ahead of time
@@ -643,24 +647,22 @@ namespace EspressoMUD
                     }
                     MetadataByID[classID] = meta;
                     meta.ClassID = classID;
-                    //If there is only one SaveID for a class, then its interface index on loading is enough and we don't need to save SaveIDs
-                    //if (saveIDParsers.Count > 1)
-                    //{
-                    //    //If there are multiple SaveIDs, any interface may load the object and all interfaces need all SaveIDs.
-                    //    meta.SaveIDParsers = saveIDParsers.ToArray();
-                    //}
                     meta.SaveParserByID = new SaveableParser[numParsers];
                     foreach (SaveableParser parser in classParsers)
                     {
                         meta.SaveParserByID[parser.ParserID] = parser;
                     }
                     meta.NumberParsers = numParsers;
-                    foreach (ObjectType owningType in ObjectType.TypeByID)
+                    if (isSaveable)
                     {
-                        if (owningType != null && owningType.BaseClass.IsAssignableFrom(type))
+                        foreach (ObjectType owningType in ObjectType.TypeByID)
                         {
-                            owningType.KnownClasses.Add(type);
-                            meta.ObjectType = owningType;
+                            if (owningType != null && owningType.BaseClass.IsAssignableFrom(type))
+                            {
+                                owningType.KnownClasses.Add(type);
+                                meta.ObjectType = owningType;
+                                break;
+                            }
                         }
                     }
                     if (needSave)
@@ -668,6 +670,7 @@ namespace EspressoMUD
                         NewClasses.Add(type);
                     }
                 }
+            }
             Metadata.ByClassID = MetadataByID.ToArray();
             //Runtime is up-to-date now. Check if there are things to save to the database.
             #region Write to main.bin that we are running and may be writing to files now.
